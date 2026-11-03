@@ -210,6 +210,7 @@ Fatos de plataforma observados (quais serviços do sistema a referência usa), s
 - Metadados (dono, PID, frame, título) via `CGWindowListCopyWindowInfo` / `CGWindowListCreateDescriptionFromArray`.
 - Complemento via Accessibility: atributo `AXExtrasMenuBar` de cada app (`AXUIElementCreateApplication`) expõe os itens com `AXFrame`/`AXPosition` e ações `AXPress`/`AXShowMenu`.
 - Itens do sistema pertencem a processos como Control Center e SystemUIServer e precisam de tratamento de nomes próprio.
+- **macOS 26 (Tahoe), observado:** todas as janelas de itens da barra, inclusive as de apps de terceiros, aparecem com o processo dono = **Control Center** (layer 25). O identificador do app real vem no **título da janela**: no monitor principal é o bundle ID (ex.: `com.apple.Passwords.MenuBarExtra`); em monitores secundários é o `autosaveName` do item (ex.: `Item-0`, `Clock`, `Battery`). Alguns itens não têm título. Por isso a referência inclui um serviço XPC específico para Tahoe. **Requisito g-bar:** a identificação de itens precisa de dois caminhos (macOS 14–15 por PID do dono; macOS 26 por título/bundle ID), e cada monitor tem a própria cópia da barra com janelas próprias.
 - As consultas de Accessibility rodam num **serviço XPC separado** que devolve "snapshots" da barra (lista de itens por app, com posição). Motivo provável: chamadas AX podem travar quando um app não responde; isolar no XPC protege o app principal. **Requisito g-bar:** as consultas AX de terceiros devem ter timeout (`AXUIElementSetMessagingTimeout`) e não podem bloquear a UI.
 
 ### 4.4 Imagem dos ícones
@@ -221,7 +222,22 @@ Fatos de plataforma observados (quais serviços do sistema a referência usa), s
 
 - O macOS guarda a posição de cada `NSStatusItem` nas preferências do app dono, nas chaves `NSStatusItem Preferred Position <autosaveName>`, e a visibilidade em `NSStatusItem Visible <autosaveName>`. A referência lê/usa essas chaves.
 - Movimento físico de itens: eventos sintéticos de mouse com ⌘ pressionado (o arrastar com ⌘ nativo do macOS), via `CGEventCreateMouseEvent` + `CGEventPost`/`CGEventPostToPid`. Durante o movimento o cursor é escondido (`CGDisplayHideCursor`) e a entrada local do usuário é suprimida por um intervalo curto. Isso explica o aviso "pode interromper o mouse brevemente".
-- `[CONFIRMAR]` como os itens Hidden saem da tela (espaçador largo à esquerda do ícone do g-bar?) e como a seção Always Hidden é separada.
+#### Mecanismo de esconder (observado em runtime)
+
+A barra de menu é preenchida da direita para a esquerda. O app cria **seus próprios status items**, que funcionam como divisores:
+
+```
+[ Always Hidden … ][ divisor AH ][ Hidden … ][ divisor H ][ ícone do app ][ Shown … ][ relógio ]
+   ← fora da tela      ~5000 pt                  ~5000 pt
+```
+
+- **Divisor Hidden:** item próprio, logo à esquerda do ícone do app. Para esconder, sua largura passa a ~5000 pt e empurra para fora da tela (x negativo) tudo o que está à esquerda dele. Para revelar, volta à largura mínima.
+- **Divisor Always Hidden:** segundo item próprio, mais à esquerda, com o mesmo truque (também ~5000 pt). Revelar só Hidden encolhe apenas o divisor H; revelar tudo encolhe os dois.
+- Ao clicar num item que não cabe (atrás do notch), um **terceiro item espaçador** é posicionado à direita dos itens encobertos, empurrando-os para a esquerda até ficarem visíveis. Esse é o comportamento de "Show items to the right when there's no room" (1.5). Ele é removido quando não é mais necessário ou quando a barra secundária está aberta.
+- Os divisores são `NSStatusItem` comuns, com `autosaveName` próprio, e por isso o macOS persiste a posição deles nas preferências do app (`NSStatusItem Preferred Position <nome>`).
+- Os itens escondidos continuam existindo como janelas (fora da tela); por isso dá para capturar a imagem deles e listá-los no Menu Bar Layout.
+
+**Requisito g-bar:** 3 status items próprios (ícone, divisor Hidden, divisor Always Hidden) + 1 espaçador temporário para overflow do notch. Larguras de colapso ≥ largura da maior tela conectada.
 
 ### 4.6 Interação com a barra
 
