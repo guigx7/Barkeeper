@@ -1,0 +1,9 @@
+.DS_Store
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+# Local RE artifacts (never commit)
+re-notes/
+*.hop
