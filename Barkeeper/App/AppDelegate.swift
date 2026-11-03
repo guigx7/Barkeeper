@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var services: AppServices?
     private lazy var permissionsWindow = PermissionsWindowController(model: permissions)
     private lazy var debugItemsWindow = DebugItemsWindowController()
+    private var settingsWindow: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
@@ -16,6 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         services.controlItems.menuProvider = { [weak self] in self?.makeMenu() ?? NSMenu() }
         if !permissions.allGranted {
             showPermissions()
+        }
+        if ProcessInfo.processInfo.arguments.contains("--settings") {
+            showSettings()
+            settingsWindow?.runDebugDropIfRequested()
         }
         if ProcessInfo.processInfo.arguments.contains("--debug-items") {
             showDebugItems()
@@ -30,12 +35,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Reopening the app (Finder/Spotlight) shows the permissions or settings window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showPermissions()
+        if permissions.requiredGranted { showSettings() } else { showPermissions() }
         return false
+    }
+
+    @objc func showSettings() {
+        guard let services else { return }
+        if settingsWindow == nil { settingsWindow = SettingsWindowController(services: services) }
+        settingsWindow?.show()
     }
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Permissions…", action: #selector(showPermissions), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Log Menu Bar Items", action: #selector(logMenuBarItems), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Show Item Images (Debug)", action: #selector(showDebugItems), keyEquivalent: "").target = self

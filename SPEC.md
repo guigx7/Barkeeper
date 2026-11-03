@@ -163,16 +163,23 @@ Interações:
 - `[CONFIRMAR]` Tooltip ou nome do app ao passar o mouse sobre um item.
 - `[CONFIRMAR]` Persistência: como um item é identificado entre execuções (app dono + identificador do item?) e o que acontece com itens de apps fechados.
 
+**Barkeeper (implementado na etapa 6):**
+- Soltar um item numa faixa move o item real **na hora** (o próprio arrastar é o pedido do usuário no modo On-Demand). O destino é calculado pelos vizinhos na faixa: à esquerda do vizinho da direita; se não houver, à direita do vizinho da esquerda; numa faixa vazia, junto ao divisor (Hidden/AH) ou à direita do ícone (Shown).
+- Itens fixos (relógio, Control Center) e o ícone do Barkeeper aparecem esmaecidos e não arrastam. Nada pode ser solto à direita dos itens fixos do sistema.
+- Tooltip com o nome do app/item. Spacer: clique direito → "Remove Spacer".
+- O layout salvo (`savedLayout`: identidades por seção, da esquerda para a direita) é gravado a cada drop. Na primeira abertura, é copiado da barra atual. Itens de apps fechados permanecem no layout salvo e voltam ao lugar com "Organize Now".
+- Sem Screen Recording, as faixas mostram o ícone do app dono no lugar da imagem do item.
+
 ### 2.2 Status do layout (On-Demand)
 
 Linha "On-Demand Layout" com um cartão de status:
 - ✅ "Menu Items Organized" — a barra real corresponde ao layout salvo.
-- `[CONFIRMAR]` Os outros estados: desorganizado, com botão para organizar agora? Organizando, com progresso? Erro de permissão?
+- **Barkeeper (decidido):** além de "Organized", há "Menu Bar Differs From Layout" (laranja, com botão **Organize Now**), "Organizing…" (spinner, avisa que o mouse pode pausar), "Couldn't Organize" (vermelho, com o motivo e **Organize Now**) e, sem Accessibility, um cartão com **Grant…** no lugar das faixas.
 - No modo Live o cartão muda ou some? `[CONFIRMAR]`
 
 ### 2.3 Palette
 
-- **Spacer:** item vazio que adiciona espaço entre itens. `[CONFIRMAR]` largura e se é configurável.
+- **Spacer:** item vazio que adiciona espaço entre itens. **Barkeeper:** 20 pt, fixo, persistido entre execuções; nasce na ponta esquerda dos itens visíveis.
 - **Menu bar item group:** agrupa vários itens sob um único ícone. **Escopo v1 (prioridade alta).** Ver 2.5.
 
 ### 2.5 Menu bar item group

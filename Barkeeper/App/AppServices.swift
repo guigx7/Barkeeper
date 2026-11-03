@@ -8,6 +8,7 @@ final class AppServices {
     let controlItems: ControlItems
     let hider: Hider
     let mover: Mover
+    let spacers = SpacerItems()
 
     init() {
         controlItems = ControlItems()
