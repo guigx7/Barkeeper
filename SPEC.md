@@ -299,6 +299,13 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 
 **Barkeeper, primeira execução (decidido):** o ícone e o divisor Hidden nascem na ponta direita (ao lado do Control Center/relógio) e o divisor Always Hidden nasce à esquerda de todos os itens. Os itens existentes começam em Hidden e Always Hidden começa vazio. As posições iniciais vêm de `NSStatusItem Preferred Position` (valor menor = mais à direita), gravado só se ainda não existir. Clique no ícone alterna Hidden; ⌥+clique revela tudo na barra real (Always Hidden fica à esquerda de Hidden, então não dá para revelá-lo sozinho sem o painel); ⇧+clique revela tudo se a opção 1.4 estiver ligada; clique direito ou ⌃+clique abre o menu do app. Auto-rehide (1.5) re-esconde no primeiro clique fora da barra de menu. Ao encerrar, o macOS remove os divisores e tudo volta a aparecer.
 
+**Barkeeper, regras de ordem (decididas com o usuário):**
+- Com itens revelados, os divisores ficam **sempre visíveis** como "‹", marcando a fronteira entre as seções, para o usuário ver o limite e arrastar itens com ⌘ por cima dele. Escondidos, ficam colapsados. A opção 1.6 "Show divider" passa a valer só para o estado escondido (v1: ainda não implementada).
+- O ícone do Barkeeper **nunca pode ser escondido**. Antes de colapsar um divisor, o app confere a ordem: ícone à direita do divisor Hidden e divisor Always Hidden à esquerda dele. Se o usuário arrastou o ícone (ou o divisor AH) para o lado errado, o Barkeeper revela tudo, devolve **só** o que está fora de ordem com ⌘-drag sintético e então esconde.
+- macOS 26: o `windowNumber` local de um `NSStatusItem` é um placeholder (≥ 2^32), porque a janela real pertence ao Control Center. A janela do próprio item é achada pelo título (= `autosaveName` na barra ativa).
+
+**Mover (observado no Barkeeper, macOS 26.6):** cobertura com a imagem congelada da barra → revela todas as seções com divisores pequenos e visíveis (servem de alvo) → esconde o cursor → `mouseDown` com ⌘ no centro do item, 8 passos de `mouseDragged`, `mouseUp` na borda do alvo (borda esquerda = soltar à esquerda, direita = à direita) → confere pela posição da janela (adjacente ao alvo) em até 600 ms, até 3 tentativas → restaura cursor, estado e remove a cobertura. Movimento medido: 0,6–1,1 s por sessão, sucesso na 1ª tentativa. Eventos postados no HID tap com supressão de mouse local por 0,25 s.
+
 **Requisito Barkeeper:** 3 status items próprios (ícone, divisor Hidden, divisor Always Hidden) + 1 espaçador temporário para overflow do notch + 1 status item por grupo. Larguras de colapso ≥ largura da maior tela conectada.
 
 ### 4.6 Interação com a barra

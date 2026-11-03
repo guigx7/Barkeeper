@@ -17,6 +17,18 @@ enum ScreenCapture {
         return unsafeBitCast(sym, to: CreateImageFromArrayFn.self)
     }()
 
+    private typealias CreateImageFn = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
+
+    private static let createImage: CreateImageFn? = {
+        guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
+        return unsafeBitCast(sym, to: CreateImageFn.self)
+    }()
+
+    /// Image of everything on screen inside `rect` (CG global coordinates).
+    nonisolated static func screenImage(rect: CGRect) -> CGImage? {
+        createImage?(rect, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution])?.takeRetainedValue()
+    }
+
     /// Image of a single window at its native resolution, or nil.
     nonisolated static func cgImage(windowID: CGWindowID) -> CGImage? {
         guard let fn = createImageFromArray else { return nil }

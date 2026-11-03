@@ -90,6 +90,26 @@ final class ControlItems: NSObject {
 
     // MARK: - Geometry
 
+    /// WindowServer ID of a control item's window on the active menu bar.
+    ///
+    /// macOS 14–15: the button's own window. macOS 26: status item windows live in Control Center and
+    /// the local window number is a placeholder (≥ 2^32), so the window is found by its title, which
+    /// on the active menu bar is the item's autosave name.
+    func windowID(_ name: Name) -> CGWindowID? {
+        let item = switch name {
+        case .main: mainItem
+        case .hidden: hiddenDivider
+        case .alwaysHidden: alwaysHiddenDivider
+        }
+        if let number = item.button?.window?.windowNumber, let id = CGWindowID(exactly: number), id > 0,
+           !WindowServer.windows(ids: [id]).isEmpty {
+            return id
+        }
+        return WindowServer.allWindows().first {
+            $0.layer == WindowServer.statusItemLayer && $0.title == name.rawValue
+        }?.windowID
+    }
+
     /// Width that pushes everything to the left of a divider off every screen.
     static var collapsedLength: CGFloat {
         let widest = NSScreen.screens.map(\.frame.width).max() ?? 2000

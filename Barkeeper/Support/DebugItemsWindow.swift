@@ -31,11 +31,18 @@ final class DebugItemsModel: ObservableObject {
     struct Entry: Identifiable {
         let item: MenuBarItem
         let image: NSImage?
+        let section: MenuBarSection?
         var id: CGWindowID { item.windowID }
     }
 
     @Published var entries: [Entry] = []
     @Published var status = "Loading…"
+
+    func move(_ item: MenuBarItem, to section: MenuBarSection) async {
+        status = "Moving \(item.displayName) to \(section.title)…"
+        await AppServices.shared.move(item, to: section)
+        await reload()
+    }
 
     func reload() async {
         let snapshots = await ItemScanner.scan()
@@ -46,7 +53,7 @@ final class DebugItemsModel: ObservableObject {
         let images = await ScreenCapture.images(windowIDs: active.items.map(\.windowID))
         entries = active.items.map { item in
             let image = images[item.windowID].map { NSImage(cgImage: $0, size: item.frame.size) }
-            return Entry(item: item, image: image)
+            return Entry(item: item, image: image, section: item.isBarkeeper ? nil : active.section(of: item))
         }
         status = "\(active.display.name): \(entries.count) items, \(images.count) images"
     }
@@ -77,8 +84,18 @@ struct DebugItemsView: View {
                             .frame(height: 40)
                             Text(entry.item.displayName).font(.caption).lineLimit(1)
                             Text(entry.item.identity.description).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                            Text(entry.item.isOnScreen ? "on screen" : "off screen").font(.caption2)
+                            Text(entry.section?.title ?? "Barkeeper").font(.caption2)
                                 .foregroundStyle(entry.item.isOnScreen ? .green : .orange)
+                        }
+                        .contextMenu {
+                            if !entry.item.isBarkeeper && entry.item.isMovable {
+                                ForEach(MenuBarSection.allCases, id: \.self) { section in
+                                    Button("Move to \(section.title)") {
+                                        Task { await model.move(entry.item, to: section) }
+                                    }
+                                    .disabled(section == entry.section)
+                                }
+                            }
                         }
                     }
                 }

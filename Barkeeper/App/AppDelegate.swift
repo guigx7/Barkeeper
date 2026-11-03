@@ -3,30 +3,29 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let permissions = PermissionsModel()
-    private var controlItems: ControlItems?
-    private var hider: Hider?
+    private var services: AppServices?
     private lazy var permissionsWindow = PermissionsWindowController(model: permissions)
     private lazy var debugItemsWindow = DebugItemsWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
-        let items = ControlItems()
-        let hider = Hider(items: items)
-        items.onClick = { [weak hider] flags in hider?.handleClick(modifiers: flags) }
-        items.menuProvider = { [weak self] in self?.makeMenu() ?? NSMenu() }
-        controlItems = items
-        self.hider = hider
+        let services = AppServices()
+        AppServices.shared = services
+        self.services = services
+        services.controlItems.onClick = { [weak services] flags in services?.hider.handleClick(modifiers: flags) }
+        services.controlItems.menuProvider = { [weak self] in self?.makeMenu() ?? NSMenu() }
         if !permissions.allGranted {
             showPermissions()
         }
         if ProcessInfo.processInfo.arguments.contains("--debug-items") {
             showDebugItems()
         }
+        runDebugMoveIfRequested()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         // Leave the bar usable if Barkeeper quits: reveal everything.
-        hider?.apply(.revealedAll)
+        services?.hider.apply(.revealedAll)
     }
 
     /// Reopening the app (Finder/Spotlight) shows the permissions or settings window.
@@ -47,6 +46,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func logMenuBarItems() {
         Task { await DebugProbe.logScan() }
+    }
+
+    /// `--debug-move <namespace/name> <shown|hidden|alwaysHidden>`: move one item after launch.
+    private func runDebugMoveIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "--debug-move"), i + 2 < args.count,
+              let section = MenuBarSection(rawValue: args[i + 2]) else { return }
+        let identity = args[i + 1]
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard let snapshot = await services?.activeSnapshot(),
+                  let item = snapshot.items.first(where: { $0.identity.description == identity }) else {
+                Log.menuBar.error("debug-move: item \(identity, privacy: .public) not found")
+                return
+            }
+            Log.menuBar.info("debug-move: \(identity, privacy: .public) from \(snapshot.section(of: item)?.rawValue ?? "?", privacy: .public) to \(section.rawValue, privacy: .public)")
+            await services?.move(item, to: section)
+            if let after = await services?.activeSnapshot(), let moved = after.items.first(where: { $0.identity.description == identity }) {
+                Log.menuBar.info("debug-move: now in \(after.section(of: moved)?.rawValue ?? "?", privacy: .public)")
+            }
+        }
     }
 
     @objc func showDebugItems() {
