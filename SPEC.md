@@ -182,3 +182,59 @@ Versão g-bar (sem licença/trial):
 | Quit g-bar | Botão que encerra o app. |
 
 Removido (não se aplica): Buy Now, Enter License Key, contagem do trial e aviso de expiração da beta.
+
+---
+
+## 4. Interoperabilidade com o macOS (requisitos de plataforma)
+
+Fatos de plataforma observados (quais serviços do sistema a referência usa), sem detalhes de implementação.
+
+### 4.1 Distribuição
+
+- App de agente (`LSUIElement = true`): sem ícone no Dock, vive só na barra de menu.
+- **Sem App Sandbox**, distribuído fora da App Store (assinado + notarizado). Necessário para Accessibility, eventos sintéticos e APIs de janela do WindowServer.
+- macOS mínimo da referência: 14.0. **g-bar: macOS 14+.**
+- Atualização automática via framework open-source Sparkle. `[DECIDIR]` usar Sparkle no g-bar.
+- Start at login: API pública `SMAppService` (ServiceManagement).
+
+### 4.2 Permissões
+
+| Permissão | API de verificação/pedido | Uso |
+|---|---|---|
+| Accessibility | `AXIsProcessTrusted(WithOptions)` | Ler a árvore de acessibilidade dos itens, acionar itens, mover itens via eventos sintéticos. |
+| Screen Recording | `CGRequestScreenCaptureAccess` | Capturar a imagem dos ícones (Menu Bar Layout e g-bar Bar). |
+
+### 4.3 Descoberta dos itens da barra
+
+- Cada item da barra é uma **janela** do WindowServer pertencente ao processo do app dono. A referência enumera essas janelas pelas APIs de lista de janelas do WindowServer, incluindo uma lista específica de janelas da barra de menu por processo (API privada CGS).
+- Metadados (dono, PID, frame, título) via `CGWindowListCopyWindowInfo` / `CGWindowListCreateDescriptionFromArray`.
+- Complemento via Accessibility: atributo `AXExtrasMenuBar` de cada app (`AXUIElementCreateApplication`) expõe os itens com `AXFrame`/`AXPosition` e ações `AXPress`/`AXShowMenu`.
+- Itens do sistema pertencem a processos como Control Center e SystemUIServer e precisam de tratamento de nomes próprio.
+- As consultas de Accessibility rodam num **serviço XPC separado** que devolve "snapshots" da barra (lista de itens por app, com posição). Motivo provável: chamadas AX podem travar quando um app não responde; isolar no XPC protege o app principal. **Requisito g-bar:** as consultas AX de terceiros devem ter timeout (`AXUIElementSetMessagingTimeout`) e não podem bloquear a UI.
+
+### 4.4 Imagem dos ícones
+
+- Captura da janela de cada item: `CGWindowListCreateImage(FromArray)` e ScreenCaptureKit (`SCShareableContent` / stream). Requer Screen Recording.
+- `[CONFIRMAR]` em que situação usa cada um (ScreenCaptureKit em versões novas do macOS?).
+
+### 4.5 Ordem e visibilidade dos itens
+
+- O macOS guarda a posição de cada `NSStatusItem` nas preferências do app dono, nas chaves `NSStatusItem Preferred Position <autosaveName>`, e a visibilidade em `NSStatusItem Visible <autosaveName>`. A referência lê/usa essas chaves.
+- Movimento físico de itens: eventos sintéticos de mouse com ⌘ pressionado (o arrastar com ⌘ nativo do macOS), via `CGEventCreateMouseEvent` + `CGEventPost`/`CGEventPostToPid`. Durante o movimento o cursor é escondido (`CGDisplayHideCursor`) e a entrada local do usuário é suprimida por um intervalo curto. Isso explica o aviso "pode interromper o mouse brevemente".
+- `[CONFIRMAR]` como os itens Hidden saem da tela (espaçador largo à esquerda do ícone do g-bar?) e como a seção Always Hidden é separada.
+
+### 4.6 Interação com a barra
+
+- Gatilhos de clique/scroll/hover na barra: event tap global (`CGEventTapCreate`).
+- Abrir o menu de um item: Accessibility `AXPress` / `AXShowMenu` ou clique sintético na posição do item. `[CONFIRMAR]` qual é usado e quando.
+- Tags de janela do WindowServer (`CGSSetWindowTags`/`CGSClearWindowTags`) aparecem nas importações. `[CONFIRMAR]` propósito.
+
+### 4.7 Telas e Spaces
+
+- Notch / tela embutida: `CGDisplayIsBuiltin` + área segura da tela. Mudanças de monitor: `CGDisplayRegisterReconfigurationCallback`.
+- Tela com a barra ativa: API privada que informa o display da barra de menu ativa.
+- Spaces e tela cheia são detectados (APIs CGS de Spaces).
+
+### 4.8 Espaçamento
+
+- O espaçamento entre itens usa as preferências globais `NSStatusItemSpacing` e `NSStatusItemSelectionPadding` (domínio global, current host). `[CONFIRMAR]` valores de cada opção e se a referência reinicia apps para aplicar.
