@@ -4,21 +4,40 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let permissions = PermissionsModel()
     private var controlItems: ControlItems?
+    private var hider: Hider?
     private lazy var permissionsWindow = PermissionsWindowController(model: permissions)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
-        controlItems = ControlItems(appDelegate: self)
-        Task { await DebugProbe.logScan() }
+        let items = ControlItems()
+        let hider = Hider(items: items)
+        items.onClick = { [weak hider] flags in hider?.handleClick(modifiers: flags) }
+        items.menuProvider = { [weak self] in self?.makeMenu() ?? NSMenu() }
+        controlItems = items
+        self.hider = hider
         if !permissions.allGranted {
             showPermissions()
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Leave the bar usable if Barkeeper quits: reveal everything.
+        hider?.apply(.revealedAll)
     }
 
     /// Reopening the app (Finder/Spotlight) shows the permissions or settings window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showPermissions()
         return false
+    }
+
+    private func makeMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Permissions…", action: #selector(showPermissions), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Log Menu Bar Items", action: #selector(logMenuBarItems), keyEquivalent: "").target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit Barkeeper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        return menu
     }
 
     @objc func logMenuBarItems() {

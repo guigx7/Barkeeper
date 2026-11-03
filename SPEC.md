@@ -295,6 +295,8 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 - Itens fora da tela passam temporariamente pela **borda esquerda da barra visível** durante a reorganização. Uma **janela de cobertura** (acima dos status items, altura da barra, opaca) esconde essa área enquanto o movimento acontece, para o usuário não ver a bagunça. Ela é removida logo depois, em ~0,1–1 s por operação.
 - Além disso, existe uma janela de cobertura transparente permanente, do tamanho da barra, em cada tela. `[CONFIRMAR]` função: provavelmente capturar cliques/hover em áreas vazias da barra.
 
+**Barkeeper, primeira execução (decidido):** o ícone e o divisor Hidden nascem na ponta direita (ao lado do Control Center/relógio) e o divisor Always Hidden nasce à esquerda de todos os itens. Os itens existentes começam em Hidden e Always Hidden começa vazio. As posições iniciais vêm de `NSStatusItem Preferred Position` (valor menor = mais à direita), gravado só se ainda não existir. Clique no ícone alterna Hidden; ⌥+clique revela tudo na barra real (Always Hidden fica à esquerda de Hidden, então não dá para revelá-lo sozinho sem o painel); ⇧+clique revela tudo se a opção 1.4 estiver ligada; clique direito ou ⌃+clique abre o menu do app. Auto-rehide (1.5) re-esconde no primeiro clique fora da barra de menu. Ao encerrar, o macOS remove os divisores e tudo volta a aparecer.
+
 **Requisito Barkeeper:** 3 status items próprios (ícone, divisor Hidden, divisor Always Hidden) + 1 espaçador temporário para overflow do notch + 1 status item por grupo. Larguras de colapso ≥ largura da maior tela conectada.
 
 ### 4.6 Interação com a barra
