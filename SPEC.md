@@ -257,6 +257,12 @@ Fatos de plataforma observados (quais serviços do sistema a referência usa), s
 - Complemento via Accessibility: atributo `AXExtrasMenuBar` de cada app (`AXUIElementCreateApplication`) expõe os itens com `AXFrame`/`AXPosition` e ações `AXPress`/`AXShowMenu`.
 - Itens do sistema pertencem a processos como Control Center e SystemUIServer e precisam de tratamento de nomes próprio.
 - **macOS 26 (Tahoe), observado:** todas as janelas de itens da barra, inclusive as de apps de terceiros, aparecem com o processo dono = **Control Center** (layer 25). O identificador do app real vem no **título da janela**: no monitor principal é o bundle ID (ex.: `com.apple.Passwords.MenuBarExtra`); em monitores secundários é o `autosaveName` do item (ex.: `Item-0`, `Clock`, `Battery`). Alguns itens não têm título. Por isso a referência inclui um serviço XPC específico para Tahoe. **Requisito Barkeeper:** a identificação de itens precisa de dois caminhos (macOS 14–15 por PID do dono; macOS 26 por título/bundle ID), e cada monitor tem a própria cópia da barra com janelas próprias.
+- **Identificação no Barkeeper (observado no macOS 26.6, dois monitores):**
+  - Cada item tem uma janela por monitor. Na barra **ativa**, o título da janela é o `autosaveName` do item (`Item-0`, `Clock`). Nas outras barras, é o bundle ID do app (vazio nos itens do sistema).
+  - O `AXExtrasMenuBar` de cada app só informa frames da barra **ativa**. Os itens do Control Center trazem `AXIdentifier` estável (`com.apple.menuextra.clock`, `…battery`, `…sound`, `…focusmode`, `…controlcenter`).
+  - Identidade estável = **bundle ID do app dono** (via AX, casando frame da janela com frame do item AX) + **nome do item** (`AXIdentifier`, senão título não bundle ID da janela, senão `#índice` dentro do app).
+  - Nas barras não ativas, a identidade é herdada da barra ativa pela posição, já que os itens aparecem na mesma ordem e com a mesma largura.
+  - A lista privada de janelas da barra (CGS) só inclui as janelas que estão de fato na barra. Uma janela de status item "ordered out" (ex.: escondida por outro gerenciador) fica fora da lista e não aparece no Barkeeper.
 - As consultas de Accessibility rodam num **serviço XPC separado** que devolve "snapshots" da barra (lista de itens por app, com posição). Motivo provável: chamadas AX podem travar quando um app não responde; isolar no XPC protege o app principal. **Requisito Barkeeper:** as consultas AX de terceiros devem ter timeout (`AXUIElementSetMessagingTimeout`) e não podem bloquear a UI.
 
 ### 4.4 Imagem dos ícones

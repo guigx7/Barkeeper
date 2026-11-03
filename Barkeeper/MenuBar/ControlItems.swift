@@ -22,6 +22,8 @@ final class ControlItems: NSObject {
         let menu = NSMenu()
         let perms = menu.addItem(withTitle: "Permissions…", action: #selector(AppDelegate.showPermissions), keyEquivalent: "")
         perms.target = appDelegate
+        let scan = menu.addItem(withTitle: "Log Menu Bar Items", action: #selector(AppDelegate.logMenuBarItems), keyEquivalent: "")
+        scan.target = appDelegate
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Barkeeper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         return menu

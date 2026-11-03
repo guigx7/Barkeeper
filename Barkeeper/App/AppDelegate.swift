@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
         controlItems = ControlItems(appDelegate: self)
+        Task { await DebugProbe.logScan() }
         if !permissions.allGranted {
             showPermissions()
         }
@@ -18,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showPermissions()
         return false
+    }
+
+    @objc func logMenuBarItems() {
+        Task { await DebugProbe.logScan() }
     }
 
     @objc func showPermissions() {
