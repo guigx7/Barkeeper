@@ -204,7 +204,10 @@ Linha "On-Demand Layout" com um cartão de status:
 
 ### 2.4 Permissões
 
-- `[CONFIRMAR]` Quais permissões são pedidas (Accessibility, Screen Recording) e em que momento, além do que aparece na aba sem elas.
+- **Barkeeper (decidido):** Accessibility é obrigatória; Screen Recording é opcional (sem ela, os ícones aparecem sem imagem).
+- Na abertura, se faltar alguma permissão, abre a janela "Barkeeper Permissions": uma linha por permissão com estado (Granted / botão **Grant…**). **Grant…** dispara o pedido do sistema e abre o painel correspondente em Ajustes do Sistema. O estado é reavaliado a cada 1 s enquanto a janela está aberta.
+- **Continue** só fica habilitado com as obrigatórias concedidas. A janela pode ser reaberta pelo menu do ícone ("Permissions…") ou abrindo o app de novo (Finder/Spotlight).
+- `[CONFIRMAR]` O que a aba Menu Bar Layout mostra sem as permissões.
 
 ---
 

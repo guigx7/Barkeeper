@@ -4,8 +4,10 @@ import AppKit
 @MainActor
 final class ControlItems: NSObject {
     let mainItem: NSStatusItem
+    private weak var appDelegate: AppDelegate?
 
-    override init() {
+    init(appDelegate: AppDelegate) {
+        self.appDelegate = appDelegate
         mainItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         mainItem.autosaveName = "BarkeeperMain"
         super.init()
@@ -18,6 +20,9 @@ final class ControlItems: NSObject {
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
+        let perms = menu.addItem(withTitle: "Permissions…", action: #selector(AppDelegate.showPermissions), keyEquivalent: "")
+        perms.target = appDelegate
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Barkeeper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         return menu
     }
