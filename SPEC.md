@@ -268,7 +268,9 @@ Fatos de plataforma observados (quais serviços do sistema a referência usa), s
 ### 4.4 Imagem dos ícones
 
 - Captura da janela de cada item: `CGWindowListCreateImage(FromArray)` e ScreenCaptureKit (`SCShareableContent` / stream). Requer Screen Recording.
-- `[CONFIRMAR]` em que situação usa cada um (ScreenCaptureKit em versões novas do macOS?).
+- A referência importa `CGWindowListCreateImage(FromArray)` e `SCStream` (não usa `SCScreenshotManager`).
+- **Observado no macOS 26.6:** `CGWindowListCreateImageFromArray` (deprecado, mas funcional) captura janelas de itens **fora da tela** (~10 ms por item). O `SCScreenshotManager` com filtro de janela única falha nessas janelas, assim como a captura direta do WindowServer (`SLSHWCaptureWindowList`), que só devolve janelas visíveis. Atenção: o array passado precisa conter os IDs crus (`CFArrayCreate` sem callbacks). Um `[UnsafeRawPointer?] as CFArray` faz a API devolver `nil`.
+- **Barkeeper:** captura via CG `FromArray` (resolvida em runtime) → captura do WindowServer → ScreenCaptureKit, nessa ordem de fallback.
 
 ### 4.5 Ordem e visibilidade dos itens
 

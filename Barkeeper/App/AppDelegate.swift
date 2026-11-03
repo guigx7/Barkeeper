@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controlItems: ControlItems?
     private var hider: Hider?
     private lazy var permissionsWindow = PermissionsWindowController(model: permissions)
+    private lazy var debugItemsWindow = DebugItemsWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
@@ -17,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.hider = hider
         if !permissions.allGranted {
             showPermissions()
+        }
+        if ProcessInfo.processInfo.arguments.contains("--debug-items") {
+            showDebugItems()
         }
     }
 
@@ -35,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Permissions…", action: #selector(showPermissions), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Log Menu Bar Items", action: #selector(logMenuBarItems), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Show Item Images (Debug)", action: #selector(showDebugItems), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Barkeeper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         return menu
@@ -42,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func logMenuBarItems() {
         Task { await DebugProbe.logScan() }
+    }
+
+    @objc func showDebugItems() {
+        debugItemsWindow.show()
     }
 
     @objc func showPermissions() {

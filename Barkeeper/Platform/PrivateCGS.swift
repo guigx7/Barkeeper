@@ -22,6 +22,25 @@ enum PrivateCGS {
     private static let windowCount = symbol("CGSGetWindowCount", as: WindowCountFn.self)
     private static let menuBarList = symbol("CGSGetProcessMenuBarWindowList", as: MenuBarListFn.self)
 
+    private typealias HWCaptureFn = @convention(c) (ConnectionID, UnsafeMutablePointer<CGWindowID>, Int32, UInt32) -> Unmanaged<CFArray>?
+    private static let hwCapture = symbol("SLSHWCaptureWindowList", as: HWCaptureFn.self)
+        ?? symbol("CGSHWCaptureWindowList", as: HWCaptureFn.self)
+
+    /// Capture options: ignore the global clip shape (lets off-screen windows render) + best resolution.
+    private static let captureOptions: UInt32 = (1 << 11) | (1 << 8)
+
+    static var canCaptureWindows: Bool { mainConnection != nil && hwCapture != nil }
+
+    /// Image of a window straight from the WindowServer, even when it is off screen.
+    static func captureWindow(_ windowID: CGWindowID) -> CGImage? {
+        guard let mainConnection, let hwCapture else { return nil }
+        var id = windowID
+        guard let array = hwCapture(mainConnection(), &id, 1, captureOptions)?.takeRetainedValue(),
+              CFArrayGetCount(array) > 0 else { return nil }
+        let image = unsafeBitCast(CFArrayGetValueAtIndex(array, 0), to: CGImage.self)
+        return image.width > 1 && image.height > 1 ? image : nil
+    }
+
     static var isAvailable: Bool { mainConnection != nil && windowCount != nil && menuBarList != nil }
 
     /// All menu bar item windows of every process (target connection 0 = all).

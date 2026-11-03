@@ -5,7 +5,7 @@ import AppKit
 /// A divider hides everything to its left by growing wider than any screen.
 @MainActor
 final class ControlItems: NSObject {
-    enum Name: String, CaseIterable {
+    enum Name: String, CaseIterable, Sendable {
         case main = "BarkeeperMain"
         case hidden = "BarkeeperHidden"
         case alwaysHidden = "BarkeeperAlwaysHidden"

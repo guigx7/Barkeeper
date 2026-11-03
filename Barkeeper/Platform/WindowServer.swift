@@ -42,9 +42,14 @@ enum WindowServer {
     /// Descriptions for specific window IDs.
     static func windows(ids: [CGWindowID]) -> [WindowInfo] {
         guard !ids.isEmpty else { return [] }
-        let array = ids.map { UnsafeRawPointer(bitPattern: UInt($0)) } as CFArray
-        let list = CGWindowListCreateDescriptionFromArray(array) as? [[String: Any]] ?? []
+        let list = CGWindowListCreateDescriptionFromArray(windowIDArray(ids)) as? [[String: Any]] ?? []
         return list.compactMap(WindowInfo.init)
+    }
+
+    /// CFArray whose values are raw window IDs (no retain callbacks), as the CGWindow*FromArray APIs expect.
+    static func windowIDArray(_ ids: [CGWindowID]) -> CFArray {
+        var pointers = ids.map { UnsafeRawPointer(bitPattern: UInt($0)) }
+        return CFArrayCreate(kCFAllocatorDefault, &pointers, pointers.count, nil)
     }
 
     /// Window IDs the WindowServer reports as menu bar item windows, in bar order when the
