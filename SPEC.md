@@ -1,13 +1,14 @@
-# Barkeeper — Especificação funcional (clean-room)
+# Barkeeper — Especificação funcional
 
-> Este documento descreve apenas **comportamento observável**. Não contém código,
-> pseudocódigo, nomes internos nem assets do app de referência.
-> A implementação deve ser feita **somente** a partir deste documento.
+> Fonte da verdade do comportamento do Barkeeper. Construído a partir da observação
+> de um app de referência e de análise com REA. O código do Barkeeper é próprio:
+> não copiar código, pseudocódigo, textos nem assets do app de referência.
+> Plano de implementação: [PLAN.md](PLAN.md).
 
 - **Referência observada:** app comercial de gerenciamento da barra de menu, versão 6.6.2 (trial).
 - **Escopo:** abas **General**, **Menu Bar Layout** e **About**.
 - **Fora do escopo:** Menu Bar Style, Presets, Triggers, Hot Keys, Advanced, Widgets, License, About Pro.
-- **Marcadores:** `[CONFIRMAR]` = comportamento a validar na fase de análise (REA / teste manual).
+- **Marcadores:** `[CONFIRMAR]` = comportamento a validar com REA ou teste no protótipo.
 
 ---
 
