@@ -86,13 +86,28 @@ Painel flutuante logo abaixo da barra de menu que exibe os itens escondidos. Res
 
 Nota de rodapé da seção: "option-click" para mostrar itens escondidos.
 
-Comportamento do painel — `[CONFIRMAR]`:
-- [ ] Aparência: material/blur, cantos, sombra; altura igual à da barra de menu?
-- [ ] Posição: alinhado à direita da tela, abaixo do ícone do g-bar?
-- [ ] Clicar num ícone do painel abre o menu **real** do app dono? Como?
-- [ ] Origem das imagens dos ícones e frequência de atualização.
-- [ ] Multi-monitor: monitor ativo ou monitor do mouse?
-- [ ] Ordem no painel = ordem definida em Menu Bar Layout?
+#### Comportamento do painel (observado em runtime)
+
+**Aparência e posição**
+- Janela flutuante sem borda, no nível de menus pop-up (acima das janelas normais e da barra de menu), com cantos arredondados e fundo escuro translúcido em formato de "pílula".
+- **Altura = altura da barra de menu** daquela tela (30 pt no monitor externo observado). Fica ~4 pt abaixo da barra.
+- Horizontalmente, ancorado ao **item que abriu o painel** (ícone do g-bar ou ícone de um grupo), com a borda direita perto dele. A largura se ajusta à quantidade de ícones (≈ 38 pt por ícone + margens: 3 ícones ≈ 131 pt; 2 ícones ≈ 93 pt).
+- Abre na tela onde está o item clicado.
+- Ícones na mesma ordem da barra (ordem do Menu Bar Layout), desenhados a partir da captura de imagem de cada item.
+
+**Clique num ícone do painel** (o menu que abre é o menu **real** do app dono):
+1. O painel some.
+2. Uma janela de cobertura, opaca e da altura da barra, aparece sobre parte da barra de menu, acima dos itens.
+3. O item real é movido temporariamente para a área visível da barra, à esquerda do ícone do g-bar. O movimento usa o arrastar com ⌘ nativo, e o macOS mostra a própria animação de "clone" do item.
+4. A cobertura é removida e o item recebe o clique: o menu do app abre **abaixo da posição real do item** na barra.
+5. Quando o menu fecha (Esc ou clique fora), o item é movido de volta para a seção de origem (Hidden ou Always Hidden), de novo sob a cobertura.
+- Tempo total observado entre o clique e o menu aberto: ~0,2 s.
+- **Requisito g-bar:** reproduzir esse fluxo. Sem mover o item, o menu do app não abre no lugar certo, e muitos apps nem respondem a clique enquanto estão fora da tela.
+
+**Esconder de novo**
+- Com "Automatically rehide", o painel desaparece com fade (~0,3 s) ao clicar fora ou depois de usar um item.
+
+`[CONFIRMAR]` (baixo risco, testar no protótipo): comportamento com hover e com scroll quando o painel está ligado; teclado (Esc fecha o painel?).
 
 ### 1.6 g-bar menu bar item
 
@@ -157,7 +172,34 @@ Linha "On-Demand Layout" com um cartão de status:
 ### 2.3 Palette
 
 - **Spacer:** item vazio que adiciona espaço entre itens. `[CONFIRMAR]` largura e se é configurável.
-- **Menu bar item group:** agrupa vários itens sob um único ícone. **Escopo v1 (prioridade alta).** `[CONFIRMAR]` comportamento completo: aparência do ícone do grupo, como os itens do grupo são exibidos ao clicar, como o grupo é nomeado e editado, e como os itens entram e saem do grupo.
+- **Menu bar item group:** agrupa vários itens sob um único ícone. **Escopo v1 (prioridade alta).** Ver 2.5.
+
+### 2.5 Menu bar item group
+
+#### Na barra de menu
+- Cada grupo é um **status item próprio do g-bar**, com o ícone e/ou título escolhidos. A largura do item acompanha o título.
+- Os itens membros saem da barra visível: ficam escondidos junto com os Always Hidden, fora da tela.
+- **Clique no ícone do grupo:** abre um painel **idêntico ao da g-bar Bar** (1.5), ancorado ao ícone do grupo e mostrando só os membros do grupo.
+- Clique num membro dentro do painel: mesmo fluxo da g-bar Bar (o item real é movido temporariamente, o menu abre e o item volta).
+- Opção "Show on hover": o painel abre ao passar o mouse sobre o ícone do grupo.
+- O grupo pode ser posicionado em qualquer seção (Shown, Hidden, Always Hidden) como um item comum, arrastando no Menu Bar Layout.
+
+#### Criação e edição
+"Add a menu bar item group" cria o grupo e abre uma folha (sheet) modal **"Menu bar item group"**:
+
+| Elemento | Comportamento |
+|---|---|
+| Seção "Group menu bar item" | |
+| Icon and title | Botão de ícone (seletor de símbolo/imagem), botão ⊗ para limpar o ícone, campo de texto do título e botão **Emoji** (abre o seletor de emojis do sistema). O ícone na barra é atualizado ao digitar. |
+| Show on hover over menu bar item | Toggle, padrão off. |
+| Group items | Área (vazia no início) com os membros do grupo, na ordem. |
+| Menu bar item palette, drag from here to the Group items | Área com **todos** os itens atuais da barra (Shown + Hidden + Always Hidden), com suas imagens. Arraste para Group items para adicionar. |
+| Delete Menu bar Item Group | Botão à esquerda no rodapé: remove o grupo e os membros voltam para a barra. `[CONFIRMAR]` para qual seção. |
+| Done | Botão principal à direita no rodapé: fecha a folha e aplica. |
+
+- Remover um membro: arrastar de Group items de volta para a palette. `[CONFIRMAR]`
+- Reabrir a edição: clicar no grupo dentro do Menu Bar Layout. `[CONFIRMAR]`
+- Identidade do grupo: UUID estável, persistido.
 
 ### 2.4 Permissões
 
@@ -237,7 +279,13 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 - Os divisores são `NSStatusItem` comuns, com `autosaveName` próprio, e por isso o macOS persiste a posição deles nas preferências do app (`NSStatusItem Preferred Position <nome>`).
 - Os itens escondidos continuam existindo como janelas (fora da tela); por isso dá para capturar a imagem deles e listá-los no Menu Bar Layout.
 
-**Requisito g-bar:** 3 status items próprios (ícone, divisor Hidden, divisor Always Hidden) + 1 espaçador temporário para overflow do notch. Larguras de colapso ≥ largura da maior tela conectada.
+#### Mover itens (observado em runtime)
+
+- Os itens são movidos um a um com o arrastar com ⌘ sintético. O macOS exibe sua animação nativa de "clone" do item durante o movimento.
+- Itens fora da tela passam temporariamente pela **borda esquerda da barra visível** durante a reorganização. Uma **janela de cobertura** (acima dos status items, altura da barra, opaca) esconde essa área enquanto o movimento acontece, para o usuário não ver a bagunça. Ela é removida logo depois, em ~0,1–1 s por operação.
+- Além disso, existe uma janela de cobertura transparente permanente, do tamanho da barra, em cada tela. `[CONFIRMAR]` função: provavelmente capturar cliques/hover em áreas vazias da barra.
+
+**Requisito g-bar:** 3 status items próprios (ícone, divisor Hidden, divisor Always Hidden) + 1 espaçador temporário para overflow do notch + 1 status item por grupo. Larguras de colapso ≥ largura da maior tela conectada.
 
 ### 4.6 Interação com a barra
 
