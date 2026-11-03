@@ -219,7 +219,7 @@ Versão Barkeeper (sem licença/trial):
 | Acknowledgments | Abre a lista de créditos/licenças de terceiros. |
 | Website | Abre o site do projeto no navegador. |
 | Support | Abre a página de suporte/issues. |
-| Feedback | Abre o canal de feedback. `[DECIDIR]` e-mail ou GitHub issues. |
+| Feedback | Abre a página de nova issue do repositório no GitHub (https://github.com/guigx7/g-bar/issues/new). |
 | Debug Logs | Exporta/abre os logs do app para anexar em pedidos de suporte. Nota: "Se estiver com problemas, anexe estes logs ao pedido de suporte." |
 | Quit Barkeeper | Botão que encerra o app. |
 
@@ -236,7 +236,7 @@ Fatos de plataforma observados (quais serviços do sistema a referência usa), s
 - App de agente (`LSUIElement = true`): sem ícone no Dock, vive só na barra de menu.
 - **Sem App Sandbox**, distribuído fora da App Store (assinado + notarizado). Necessário para Accessibility, eventos sintéticos e APIs de janela do WindowServer.
 - macOS mínimo da referência: 14.0. **Barkeeper: macOS 14+.**
-- Atualização automática via framework open-source Sparkle. `[DECIDIR]` usar Sparkle no Barkeeper.
+- Atualização automática via framework open-source Sparkle. **Barkeeper: Sparkle fica para a v2**; na v1, Website/About apontam para as GitHub Releases.
 - Start at login: API pública `SMAppService` (ServiceManagement).
 
 ### 4.2 Permissões
