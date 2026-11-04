@@ -13,6 +13,26 @@ struct SavedLayout: Codable, Equatable, Sendable {
         MenuBarSection.allCases.first { self[$0].contains(identity) }
     }
 
+    /// This layout with `older`'s items that are not in it (apps not running now) kept in their old
+    /// section, right after the item that preceded them there (or at the start).
+    func keepingAbsent(from older: SavedLayout) -> SavedLayout {
+        var result = self
+        let present = Set(MenuBarSection.allCases.flatMap { self[$0] })
+        for section in MenuBarSection.allCases {
+            var list = result[section]
+            var previous: ItemIdentity?
+            for id in older[section] {
+                if !present.contains(id), !list.contains(id) {
+                    let at = previous.flatMap { list.firstIndex(of: $0).map { $0 + 1 } } ?? 0
+                    list.insert(id, at: at)
+                }
+                previous = id
+            }
+            result[section] = list
+        }
+        return result
+    }
+
     private static let key = "savedLayout"
 
     static func load() -> SavedLayout? {
@@ -171,7 +191,7 @@ final class LayoutModel: ObservableObject {
         var list = entries(in: section).filter { $0.id != identity }
         let clamped = min(max(index, 0), list.count)
         // Never place anything right of an immovable system item (Control Center, clock).
-        let lastMovable = (list.lastIndex { !$0.isDraggable && !$0.item.isBarkeeper }) ?? list.count
+        let lastMovable = (list.firstIndex { !$0.isDraggable && !$0.item.isBarkeeper }) ?? list.count
         let insertAt = section == .shown ? min(clamped, lastMovable) : clamped
         list.insert(entry, at: insertAt)
 
@@ -188,13 +208,16 @@ final class LayoutModel: ObservableObject {
         // Optimistic update so the drop feels instant.
         for s in MenuBarSection.allCases { entries[s] = entries(in: s).filter { $0.id != identity } }
         entries[section] = list
-        saved = currentLayout()
-        saved?.save()
+        let wanted = saved.map { currentLayout().keepingAbsent(from: $0) } ?? currentLayout()
 
         status = .organizing
         let failures = await services.mover.perform([Mover.Move(item: entry.item, destination: destination)], on: snapshot.display)
         if let failure = failures.first {
             status = .failed("Could not move \(entry.item.displayName): \(failure.1.description)")
+        } else {
+            // Only a move that happened becomes the saved layout.
+            saved = wanted
+            saved?.save()
         }
         await refresh()
     }

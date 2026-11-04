@@ -82,7 +82,7 @@ final class Mover {
 
         EventSynth.warpCursor(to: savedCursor)
         EventSynth.showCursor()
-        hider.apply(savedState)
+        hider.restoreAfterMove(savedState)
         try? await Task.sleep(for: .milliseconds(150))
         cover.close()
         Log.menuBar.info("Move session: \(moves.count - failures.count)/\(moves.count) ok in \(started.duration(to: .now), privacy: .public)")

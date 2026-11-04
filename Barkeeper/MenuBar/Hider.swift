@@ -43,13 +43,23 @@ final class Hider {
     /// Set by `AppServices`: puts control items back in order (icon right of the Hidden divider,
     /// Always Hidden divider left of it). Returns when done.
     var repairOrder: (() async -> Void)?
+    /// Set by `AppServices`: true while an item's menu is open or items are being moved.
+    var isBusy: (() -> Bool)?
     private var isRepairing = false
+    /// The latest state asked for while a repair runs; applied when it ends.
+    private var stateAfterRepair: State = .hidden
 
     func apply(_ newState: State) {
+        if isRepairing {
+            // Dividers stay open until the repair ends; the last request wins.
+            stateAfterRepair = newState
+            return
+        }
         // Never collapse a divider while the Barkeeper icon sits to its left: the icon would vanish.
-        if newState != .revealedAll, !isRepairing, let problem = orderProblem() {
+        if newState != .revealedAll, let problem = orderProblem() {
             Log.menuBar.notice("Control items out of order (\(problem, privacy: .public)); repairing before hiding")
             isRepairing = true
+            stateAfterRepair = newState
             applyDividers(.revealedAll)
             Task {
                 await repairOrder?()
@@ -58,7 +68,7 @@ final class Hider {
                     Log.menuBar.error("Control items still out of order (\(still, privacy: .public)); keeping everything revealed")
                     applyDividers(.revealedAll)
                 } else {
-                    applyDividers(newState)
+                    applyDividers(stateAfterRepair)
                 }
             }
             return
@@ -97,6 +107,16 @@ final class Hider {
         return nil
     }
 
+    /// End of a move session. The repair's own moves end here too: then the dividers stay open and
+    /// the state the user asked for meanwhile is kept for the end of the repair.
+    func restoreAfterMove(_ saved: State) {
+        if isRepairing {
+            applyDividers(.revealedAll)
+        } else {
+            apply(saved)
+        }
+    }
+
     /// Every section on screen with both dividers drawn small, so they can serve as drop targets.
     /// Does not change `state`; callers restore with `apply(state)`.
     func revealForMove() {
@@ -117,7 +137,7 @@ final class Hider {
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             let location = NSEvent.mouseLocation
             MainActor.assumeIsolated {
-                guard let self, !Self.isInMenuBar(location) else { return }
+                guard let self, !Self.isInMenuBar(location), !(self.isBusy?() ?? false) else { return }
                 self.apply(.hidden)
             }
         }

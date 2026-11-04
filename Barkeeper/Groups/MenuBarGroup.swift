@@ -26,8 +26,8 @@ final class GroupStore: ObservableObject {
     private var clickTargets: [UUID: ClickTarget] = [:]
     private static let key = "menuBarGroups"
 
-    /// Called when a group's icon is clicked or hovered (if enabled).
-    var onActivate: ((MenuBarGroup, CGWindowID?) -> Void)?
+    /// Called when a group's icon is clicked (toggles its panel) or hovered, if enabled (only opens).
+    var onActivate: ((MenuBarGroup, CGWindowID?, _ hover: Bool) -> Void)?
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.key),
@@ -91,7 +91,7 @@ final class GroupStore: ObservableObject {
         // Target-action needs an NSObject target; GroupStore is a plain Swift class.
         let target = ClickTarget { [weak self] in
             guard let self, let current = self.group(id: group.id) else { return }
-            self.onActivate?(current, self.windowID(of: current))
+            self.onActivate?(current, self.windowID(of: current), false)
         }
         clickTargets[group.id] = target
         item.button?.target = target
@@ -101,7 +101,7 @@ final class GroupStore: ObservableObject {
         if let button = item.button {
             hoverTrackers[group.id] = HoverTracker(view: button) { [weak self] in
                 guard let self, let current = self.group(id: group.id), current.showOnHover else { return }
-                self.onActivate?(current, self.windowID(of: current))
+                self.onActivate?(current, self.windowID(of: current), true)
             }
         }
     }

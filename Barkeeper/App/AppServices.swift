@@ -26,8 +26,13 @@ final class AppServices {
         mover = Mover(hider: hider)
         activator = ItemActivator(mover: mover, hider: hider)
         hider.repairOrder = { [weak self] in await self?.repairControlItemOrder() }
-        groups.onActivate = { [weak self] group, windowID in
-            Task { await self?.openGroup(group, anchorWindowID: windowID) }
+        groups.onActivate = { [weak self] group, windowID, hover in
+            Task { await self?.openGroup(group, anchorWindowID: windowID, hover: hover) }
+        }
+        // Hider changes from outside (auto rehide clicks) wait while an item's menu is open or items move.
+        hider.isBusy = { [weak self] in
+            guard let self else { return false }
+            return self.activator.isBusy || self.mover.isMoving
         }
         triggers.isRevealed = { [weak self] in
             guard let self else { return false }
@@ -55,6 +60,8 @@ final class AppServices {
     /// Moves the Barkeeper icon right of the Hidden divider and the Always Hidden divider left of it,
     /// touching only what is actually out of order (moving a divider changes which items it hides).
     func repairControlItemOrder() async {
+        // Reached from a move session's restore: wait for it to end, or the repair's own move is refused.
+        for _ in 0..<50 where mover.isMoving { try? await Task.sleep(for: .milliseconds(100)) }
         guard let mainID = controlItems.windowID(.main), let hiddenID = controlItems.windowID(.hidden),
               let ahID = controlItems.windowID(.alwaysHidden) else { return }
         let frames = Dictionary(WindowServer.windows(ids: [mainID, hiddenID, ahID]).map { ($0.windowID, $0.frame) },
@@ -127,6 +134,8 @@ final class AppServices {
 
     /// Click / scroll / hover on empty menu bar space.
     private func handleTrigger(_ action: BarTriggers.Action) {
+        // While items move or an item's menu is open the dividers belong to that operation.
+        if mover.isMoving || activator.isBusy, !isSpaceSwitch(action) { return }
         let revealed = barPanel.isVisible || hider.state != .hidden
         switch action {
         case .toggle:
@@ -156,10 +165,17 @@ final class AppServices {
         }
     }
 
+    private func isSpaceSwitch(_ action: BarTriggers.Action) -> Bool {
+        if case .scroll(let a) = action { return a == .desktopLeft || a == .desktopRight }
+        return false
+    }
+
     // MARK: - Barkeeper icon
 
     /// Click on the Barkeeper icon: reveal on the bar, or open the Barkeeper Bar when enabled.
     func handleIconClick(_ flags: NSEvent.ModifierFlags) {
+        // Items are being moved: the dividers belong to that session until it ends.
+        guard !mover.isMoving else { return }
         if barPanel.isVisible {
             barPanel.close(animated: true)
             return
@@ -198,9 +214,11 @@ final class AppServices {
 
     // MARK: - Groups
 
-    private func openGroup(_ group: MenuBarGroup, anchorWindowID: CGWindowID?) async {
+    private func openGroup(_ group: MenuBarGroup, anchorWindowID: CGWindowID?, hover: Bool) async {
         if barPanel.isVisible {
             let sameGroup = barPanel.anchorWindowID == anchorWindowID
+            // Hover only opens: hovering the icon of the group already shown leaves it open.
+            if sameGroup && hover { return }
             barPanel.close(animated: !sameGroup)
             if sameGroup { return }
         }

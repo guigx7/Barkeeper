@@ -57,11 +57,7 @@ final class ItemActivator {
     /// cannot see this app's own status items, and they do not move when a section is revealed), on
     /// every display: each display mirrors the bar in the same order.
     private func uncover(_ item: MenuBarItem, displays: [DisplayInfo], active: DisplayInfo) {
-        var byDisplay: [CGDirectDisplayID: [WindowInfo]] = [:]
-        for w in ItemScanner.itemWindows() {
-            guard let d = Displays.display(forMenuBarWindow: w.frame, in: displays) else { continue }
-            byDisplay[d.id, default: []].append(w)
-        }
+        var byDisplay = Displays.assignMenuBarWindows(ItemScanner.itemWindows(), in: displays)
         for id in byDisplay.keys { byDisplay[id]?.sort { $0.frame.minX < $1.frame.minX } }
         guard let activeWindows = byDisplay[active.id],
               let itemIndex = activeWindows.firstIndex(where: { $0.windowID == item.windowID }) else { return }

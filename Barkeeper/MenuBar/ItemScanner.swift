@@ -56,11 +56,7 @@ enum ItemScanner {
         let activeID = axItems.lazy.compactMap { Displays.display(forMenuBarWindow: $0.frame.insetBy(dx: 0, dy: -4), in: displays) }.first?.id
             ?? axItems.compactMap { ax in displays.first { $0.bounds.minY <= ax.frame.midY && ax.frame.midY <= $0.bounds.minY + 40 } }.first?.id
 
-        var byDisplay: [CGDirectDisplayID: [WindowInfo]] = [:]
-        for w in windows {
-            guard let d = Displays.display(forMenuBarWindow: w.frame, in: displays) else { continue }
-            byDisplay[d.id, default: []].append(w)
-        }
+        let byDisplay = Displays.assignMenuBarWindows(windows, in: displays)
 
         // Resolve identities on the active display first (AX available there).
         var snapshots: [MenuBarSnapshot] = []

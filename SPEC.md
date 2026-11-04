@@ -350,6 +350,10 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 ### 4.7 Telas e Spaces
 
 - **Barkeeper:** em mudança de telas (conectar, desconectar, resolução), descarta o cache da barra, fecha o painel e reaplica o estado dos divisores (a largura de colapso vem da maior tela conectada); o Menu Bar Layout recarrega se estiver aberto. A tela da barra ativa é a que contém a janela do ícone do Barkeeper com o autosave name como título.
+- **Barkeeper:** cada tela tem sua própria cópia das janelas dos itens. Telas lado a lado com o topo alinhado se sobrepõem em x depois que os itens ocultos saem da tela; a barra de cada uma é a cadeia de janelas encostadas que termina na borda direita daquela tela. Os divisores só são reaplicados depois que terminar qualquer movimentação de itens em andamento.
+- **Barkeeper:** com itens sendo movidos ou com o menu de um item aberto pelo painel, clique, scroll e hover na barra e o rehide por clique fora não mexem nos divisores (trocar de desktop continua funcionando).
+- **Barkeeper:** soltar um item no Menu Bar Layout só grava o layout se o movimento der certo, e mantém no layout salvo os itens de apps que não estão abertos.
+- **Barkeeper:** hover no ícone de um grupo só abre o painel do grupo; nunca fecha.
 
 - Notch / tela embutida: `CGDisplayIsBuiltin` + área segura da tela. Mudanças de monitor: `CGDisplayRegisterReconfigurationCallback`.
 - Tela com a barra ativa: API privada que informa o display da barra de menu ativa.
