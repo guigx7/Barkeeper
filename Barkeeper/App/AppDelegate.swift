@@ -21,12 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()
             settingsWindow?.runDebugDropIfRequested()
+            settingsWindow?.runDebugEditGroupIfRequested()
         }
         if ProcessInfo.processInfo.arguments.contains("--debug-items") {
             showDebugItems()
         }
         runDebugMoveIfRequested()
         runDebugActivateIfRequested()
+        runDebugGroupIfRequested()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -95,6 +97,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let after = await services.activeSnapshot()
             let section = after?.items.first { $0.identity == item.identity }.flatMap { after?.section(of: $0) }
             Log.menuBar.info("debug-activate: back in \(section?.rawValue ?? "?", privacy: .public)")
+        }
+    }
+
+    /// `--debug-group <namespace/name>...`: create a group with these members and apply it.
+    private func runDebugGroupIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "--debug-group"), let services else { return }
+        let names = args[(i + 1)...].prefix { !$0.hasPrefix("--") }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard let snapshot = await services.activeSnapshot() else { return }
+            var group = services.groups.create()
+            await services.placeNewItem(autosaveName: group.autosaveName)
+            group.title = "Dev"
+            group.symbol = "hammer"
+            group.members = snapshot.items.filter { names.contains($0.identity.description) }.map(\.identity)
+            services.groups.update(group)
+            try? await Task.sleep(for: .milliseconds(400))
+            await services.applyGroupChange(old: [], new: group.members)
+            let after = await services.activeSnapshot()
+            for m in group.members {
+                let section = after?.items.first { $0.identity == m }.flatMap { after?.section(of: $0) }
+                Log.menuBar.info("debug-group: \(m.description, privacy: .public) in \(section?.rawValue ?? "?", privacy: .public)")
+            }
         }
     }
 

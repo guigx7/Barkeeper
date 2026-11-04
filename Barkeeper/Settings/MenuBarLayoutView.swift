@@ -19,6 +19,9 @@ struct MenuBarLayoutView: View {
                 PaletteCard(model: model)
             }
         }
+        .sheet(item: $model.editingGroup) { group in
+            GroupEditorView(model: model, draft: group, original: group.members)
+        }
     }
 }
 
@@ -143,7 +146,13 @@ private struct SectionStrip: View {
                                 return NSItemProvider(object: entry.id.description as NSString)
                             }
                             .disabled(!entry.isDraggable)
+                            .onTapGesture {
+                                if let id = entry.groupID { model.editGroup(id) }
+                            }
                             .contextMenu {
+                                if let id = entry.groupID {
+                                    Button("Edit Group…") { model.editGroup(id) }
+                                }
                                 if entry.isSpacer {
                                     Button("Remove Spacer") {
                                         AppServices.shared.spacers.remove(name: entry.item.identity.name)
@@ -200,7 +209,7 @@ private struct ItemCell: View {
         }
         .opacity(isDragging ? 0.3 : (entry.isDraggable ? 1 : 0.55))
         .contentShape(Rectangle())
-        .help(entry.isSpacer ? "Spacer" : entry.item.displayName)
+        .help(entry.isSpacer ? "Spacer" : entry.groupID != nil ? "Group — click to edit" : entry.item.displayName)
     }
 }
 
@@ -257,22 +266,18 @@ private struct PaletteCard: View {
     @ObservedObject var model: LayoutModel
 
     var body: some View {
-        SettingsCard(title: "Palette", footnote: "New spacers appear at the left end of the shown items; drag them where you need room.") {
+        SettingsCard(title: "Palette", footnote: "New spacers and groups appear right of the Barkeeper icon; drag them where you need them.") {
             HStack(spacing: 10) {
                 Button {
-                    AppServices.shared.spacers.add()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(300))
-                        await model.refresh()
-                    }
+                    Task { await model.addSpacer() }
                 } label: {
                     Label("Add a Spacer", systemImage: "rectangle.dashed")
                 }
-                Button {} label: {
+                Button {
+                    Task { await model.addGroup() }
+                } label: {
                     Label("Add a Menu Bar Item Group", systemImage: "square.stack.3d.up")
                 }
-                .disabled(true)
-                .help("Coming soon")
                 Spacer()
             }
             .padding(12)

@@ -100,7 +100,7 @@ enum ItemScanner {
             let ownPID = ProcessInfo.processInfo.processIdentifier
             let filtered = candidates.filter {
                 set.contains($0.windowID) || $0.ownerPID == ownPID || ownTitles.contains($0.title ?? "")
-                    || ($0.title ?? "").hasPrefix("BarkeeperSpacer-")
+                    || ($0.title ?? "").hasPrefix("BarkeeperSpacer-") || ($0.title ?? "").hasPrefix("BarkeeperGroup-")
             }
             if !filtered.isEmpty { candidates = filtered }
         }

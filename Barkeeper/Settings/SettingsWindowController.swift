@@ -53,6 +53,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// `--debug-edit-group`: opens the editor of the first group after the layout loads.
+    func runDebugEditGroupIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("--debug-edit-group") else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            if let first = AppServices.shared.groups.groups.first { layout.editGroup(first.id) }
+        }
+    }
+
     /// Back to a menu bar–only app when settings close.
     func windowWillClose(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)

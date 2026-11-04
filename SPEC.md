@@ -209,12 +209,20 @@ Linha "On-Demand Layout" com um cartão de status:
 | Show on hover over menu bar item | Toggle, padrão off. |
 | Group items | Área (vazia no início) com os membros do grupo, na ordem. |
 | Menu bar item palette, drag from here to the Group items | Área com **todos** os itens atuais da barra (Shown + Hidden + Always Hidden), com suas imagens. Arraste para Group items para adicionar. |
-| Delete Menu bar Item Group | Botão à esquerda no rodapé: remove o grupo e os membros voltam para a barra. `[CONFIRMAR]` para qual seção. |
+| Delete Menu bar Item Group | Botão à esquerda no rodapé: remove o grupo e os membros voltam para a barra, na seção Hidden. |
 | Done | Botão principal à direita no rodapé: fecha a folha e aplica. |
 
-- Remover um membro: arrastar de Group items de volta para a palette. `[CONFIRMAR]`
-- Reabrir a edição: clicar no grupo dentro do Menu Bar Layout. `[CONFIRMAR]`
-- Identidade do grupo: UUID estável, persistido.
+- Remover um membro: arrastar de Group items de volta para a palette, ou clique direito → "Remove from Group". Clique direito na palette → "Add to Group".
+- Reabrir a edição: clicar no grupo dentro do Menu Bar Layout (ou clique direito → "Edit Group…").
+- Identidade do grupo: UUID estável, persistido (`menuBarGroups`); o status item usa o `autosaveName` `BarkeeperGroup-<UUID>`.
+
+**Barkeeper (implementado na etapa 8):**
+- Ícone, título e hover são aplicados ao vivo enquanto se edita; os membros só são aplicados em **Done**. Membros novos vão para Always Hidden (à esquerda do divisor AH); membros removidos voltam para Hidden.
+- **Delete:** remove o grupo e o status item; os membros voltam para **Hidden** (decidido).
+- Membros de grupos não aparecem nas faixas do Layout nem nos painéis Hidden/Always Hidden; um item pertence a no máximo um grupo (a palette não mostra membros de outros grupos).
+- O macOS cria status items novos na ponta esquerda (dentro de Always Hidden). Por isso, um grupo ou spacer recém-criado é movido logo em seguida para a direita do ícone do Barkeeper (início de Shown).
+- Clique no grupo com o painel do próprio grupo aberto: fecha. "Show on hover": abre após 0,2 s com o ponteiro parado sobre o ícone.
+- Ícones disponíveis: grade de ~48 SF Symbols; ⊗ remove o ícone (fica só o título; sem ícone nem título, mostra "Group").
 
 ### 2.4 Permissões
 

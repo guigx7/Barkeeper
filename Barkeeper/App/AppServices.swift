@@ -10,6 +10,7 @@ final class AppServices {
     let mover: Mover
     let spacers = SpacerItems()
     let barPanel = BarPanel()
+    let groups = GroupStore()
     let activator: ItemActivator
     let prefs = Preferences.shared
     /// Last full scan of the active bar; lets the Barkeeper Bar open without waiting for AX.
@@ -21,6 +22,9 @@ final class AppServices {
         mover = Mover(hider: hider)
         activator = ItemActivator(mover: mover)
         hider.repairOrder = { [weak self] in await self?.repairControlItemOrder() }
+        groups.onActivate = { [weak self] group, windowID in
+            Task { await self?.openGroup(group, anchorWindowID: windowID) }
+        }
         // Status item windows get their frames on the next layout pass.
         Task { [hider] in
             try? await Task.sleep(for: .milliseconds(400))
@@ -109,13 +113,78 @@ final class AppServices {
             hider.handleClick(modifiers: sections.contains(.alwaysHidden) ? .option : [])
             return
         }
+        let members = groups.allMembers
         let items = snapshot.items.filter { item in
-            !item.isBarkeeper && snapshot.section(of: item).map(sections.contains) == true
+            !item.isBarkeeper && !members.contains(item.identity)
+                && snapshot.section(of: item).map(sections.contains) == true
         }
         guard !items.isEmpty else {
             Log.menuBar.info("Barkeeper Bar: nothing to show")
             return
         }
+        await presentBar(items, snapshot: snapshot, anchor: main.frame, anchorWindowID: main.windowID)
+    }
+
+    // MARK: - Groups
+
+    private func openGroup(_ group: MenuBarGroup, anchorWindowID: CGWindowID?) async {
+        if barPanel.isVisible {
+            let sameGroup = barPanel.anchorWindowID == anchorWindowID
+            barPanel.close(animated: !sameGroup)
+            if sameGroup { return }
+        }
+        guard let snapshot = await quickSnapshot() else { return }
+        let byID = Dictionary(snapshot.items.map { ($0.identity, $0) }, uniquingKeysWith: { a, _ in a })
+        let items = group.members.compactMap { byID[$0] }
+        let anchor = anchorWindowID.flatMap { id in WindowServer.windows(ids: [id]).first?.frame }
+            ?? snapshot.controlItem(.main)?.frame ?? .zero
+        guard !items.isEmpty else {
+            Log.menuBar.info("Group \(group.id, privacy: .public) has no running members")
+            return
+        }
+        await presentBar(items, snapshot: snapshot, anchor: anchor, anchorWindowID: anchorWindowID)
+    }
+
+    /// Applies membership changes on the real bar: new members go to Always Hidden, removed members
+    /// go back to Hidden.
+    func applyGroupChange(old: [ItemIdentity], new: [ItemIdentity]) async {
+        let added = Set(new).subtracting(old), removed = Set(old).subtracting(new)
+        guard !added.isEmpty || !removed.isEmpty, let snapshot = await activeSnapshot(),
+              let hidden = snapshot.controlItem(.hidden), let ah = snapshot.controlItem(.alwaysHidden) else { return }
+        var moves: [Mover.Move] = []
+        for item in snapshot.items where item.isMovable {
+            if added.contains(item.identity), snapshot.section(of: item) != .alwaysHidden {
+                moves.append(Mover.Move(item: item, destination: .leftOf(ah.windowID)))
+            } else if removed.contains(item.identity) {
+                moves.append(Mover.Move(item: item, destination: .leftOf(hidden.windowID)))
+            }
+        }
+        await mover.perform(moves, on: snapshot.display)
+    }
+
+    /// New status items appear at the far left (inside Always Hidden). Move one next to the
+    /// Barkeeper icon, at the left end of the shown items.
+    func placeNewItem(autosaveName: String) async {
+        var windowID: CGWindowID?
+        for _ in 0..<10 {
+            windowID = WindowServer.allWindows().first {
+                $0.layer == WindowServer.statusItemLayer && $0.title == autosaveName
+            }?.windowID
+            if windowID != nil { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        guard let windowID, let mainID = controlItems.windowID(.main),
+              let mainFrame = WindowServer.windows(ids: [mainID]).first?.frame,
+              let display = Displays.display(forMenuBarWindow: mainFrame, in: Displays.current()) else { return }
+        let item = MenuBarItem(identity: ItemIdentity(namespace: Bundle.main.bundleIdentifier ?? "", name: autosaveName),
+                               windowID: windowID, appPID: ProcessInfo.processInfo.processIdentifier, windowOwnerPID: 0,
+                               displayID: display.id, frame: .zero, displayName: autosaveName, isOnScreen: false)
+        await mover.perform([Mover.Move(item: item, destination: .rightOf(mainID))], on: display)
+    }
+
+    // MARK: - Panel
+
+    private func presentBar(_ items: [MenuBarItem], snapshot: MenuBarSnapshot, anchor: CGRect, anchorWindowID: CGWindowID?) async {
         let images = await ScreenCapture.images(windowIDs: items.map(\.windowID))
         let entries = items.map { item in
             BarPanel.Entry(item: item, image: images[item.windowID].map { NSImage(cgImage: $0, size: item.frame.size) })
@@ -125,7 +194,7 @@ final class AppServices {
             self.barPanel.close(animated: true)
             Task { await self.activator.activate(item, in: snapshot) }
         }
-        barPanel.show(entries, anchor: main.frame, anchorWindowID: main.windowID, display: snapshot.display)
+        barPanel.show(entries, anchor: anchor, anchorWindowID: anchorWindowID, display: snapshot.display)
     }
 
     func move(_ item: MenuBarItem, to section: MenuBarSection) async {

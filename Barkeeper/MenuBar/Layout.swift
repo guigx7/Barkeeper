@@ -34,6 +34,7 @@ struct LayoutEntry: Identifiable, Equatable {
     var id: ItemIdentity { item.identity }
     var isDraggable: Bool { item.isMovable && !(item.isBarkeeper && item.identity.name == ControlItems.Name.main.rawValue) }
     var isSpacer: Bool { item.isBarkeeper && item.identity.name.hasPrefix(SpacerItems.namePrefix) }
+    var groupID: UUID? { item.isBarkeeper ? MenuBarGroup.id(fromName: item.identity.name) : nil }
     var width: CGFloat { max(item.frame.width, 16) }
 }
 
@@ -53,6 +54,10 @@ final class LayoutModel: ObservableObject {
     @Published private(set) var status: Status = .loading
     @Published var dragging: ItemIdentity?
     @Published var dropTarget: (section: MenuBarSection, index: Int)?
+    /// Group being edited in the sheet.
+    @Published var editingGroup: MenuBarGroup?
+    /// Every other app's item (any section, including group members), for the group editor palette.
+    @Published private(set) var allItems: [LayoutEntry] = []
 
     private var snapshot: MenuBarSnapshot?
     private var saved: SavedLayout?
@@ -89,14 +94,21 @@ final class LayoutModel: ObservableObject {
             ? await ScreenCapture.images(windowIDs: snap.items.map(\.windowID)) : [:]
 
         var next: [MenuBarSection: [LayoutEntry]] = [:]
+        var all: [LayoutEntry] = []
+        let members = services.groups.allMembers
         for item in snap.items {
             if item.isBarkeeper, item.identity.name == ControlItems.Name.hidden.rawValue
                 || item.identity.name == ControlItems.Name.alwaysHidden.rawValue { continue }
             guard let section = snap.section(of: item) else { continue }
             let image = images[item.windowID].map { NSImage(cgImage: $0, size: item.frame.size) } ?? Self.fallbackImage(for: item)
-            next[section, default: []].append(LayoutEntry(item: item, image: image))
+            let entry = LayoutEntry(item: item, image: image)
+            if !item.isBarkeeper && item.isMovable { all.append(entry) }
+            // Group members live inside their group, not in the section strips.
+            if members.contains(item.identity) { continue }
+            next[section, default: []].append(entry)
         }
         entries = next
+        allItems = all
         if saved == nil {
             saved = currentLayout()
             saved?.save()
@@ -167,6 +179,54 @@ final class LayoutModel: ObservableObject {
         if let failure = failures.first {
             status = .failed("Could not move \(entry.item.displayName): \(failure.1.description)")
         }
+        await refresh()
+    }
+
+    // MARK: - Groups
+
+    func addGroup() async {
+        let group = services.groups.create()
+        status = .organizing
+        await services.placeNewItem(autosaveName: group.autosaveName)
+        await refresh()
+        editingGroup = group
+    }
+
+    func addSpacer() async {
+        let name = services.spacers.add()
+        status = .organizing
+        await services.placeNewItem(autosaveName: SpacerItems.namePrefix + name)
+        await refresh()
+    }
+
+    func editGroup(_ id: UUID) {
+        editingGroup = services.groups.group(id: id)
+    }
+
+    /// Live preview while editing (icon/title/hover); membership is applied on `finishEditing`.
+    func previewGroup(_ group: MenuBarGroup) {
+        guard var stored = services.groups.group(id: group.id) else { return }
+        stored.symbol = group.symbol
+        stored.title = group.title
+        stored.showOnHover = group.showOnHover
+        services.groups.update(stored)
+    }
+
+    func finishEditing(_ group: MenuBarGroup) async {
+        let old = services.groups.group(id: group.id)?.members ?? []
+        services.groups.update(group)
+        editingGroup = nil
+        status = .organizing
+        await services.applyGroupChange(old: old, new: group.members)
+        await refresh()
+    }
+
+    func deleteGroup(_ group: MenuBarGroup) async {
+        let old = services.groups.group(id: group.id)?.members ?? []
+        services.groups.delete(group.id)
+        editingGroup = nil
+        status = .organizing
+        await services.applyGroupChange(old: old, new: [])
         await refresh()
     }
 
