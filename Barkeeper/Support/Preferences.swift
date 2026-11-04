@@ -53,7 +53,6 @@ final class Preferences: ObservableObject {
         case allHidden, alwaysHidden
     }
 
-    @Published var showDivider: Bool { didSet { defaults.set(showDivider, forKey: Keys.showDivider) } }
     @Published var shiftClickShowsAll: Bool { didSet { defaults.set(shiftClickShowsAll, forKey: Keys.shiftClickShowsAll) } }
     @Published var optionClickItems: OptionClickItems { didSet { defaults.set(optionClickItems.rawValue, forKey: Keys.optionClickItems) } }
     @Published var autoRehide: Bool { didSet { defaults.set(autoRehide, forKey: Keys.autoRehide) } }
@@ -67,7 +66,6 @@ final class Preferences: ObservableObject {
     @Published var iconSymbol: String { didSet { defaults.set(iconSymbol, forKey: Keys.iconSymbol) } }
 
     private enum Keys {
-        static let showDivider = "showDivider"
         static let shiftClickShowsAll = "shiftClickShowsAll"
         static let optionClickItems = "optionClickItems"
         static let autoRehide = "autoRehide"
@@ -83,7 +81,6 @@ final class Preferences: ObservableObject {
 
     private init() {
         defaults.register(defaults: [
-            Keys.showDivider: false,
             Keys.shiftClickShowsAll: false,
             Keys.optionClickItems: OptionClickItems.alwaysHidden.rawValue,
             Keys.autoRehide: true,
@@ -96,7 +93,6 @@ final class Preferences: ObservableObject {
             Keys.hoverDelay: 0.2,
             Keys.iconSymbol: "custom.bee",
         ])
-        showDivider = defaults.bool(forKey: Keys.showDivider)
         shiftClickShowsAll = defaults.bool(forKey: Keys.shiftClickShowsAll)
         optionClickItems = OptionClickItems(rawValue: defaults.string(forKey: Keys.optionClickItems) ?? "") ?? .alwaysHidden
         autoRehide = defaults.bool(forKey: Keys.autoRehide)

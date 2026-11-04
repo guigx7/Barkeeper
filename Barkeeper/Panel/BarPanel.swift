@@ -21,6 +21,14 @@ final class BarPanel {
 
     var isVisible: Bool { panel?.isVisible == true }
 
+    /// Whether a point (CG global coordinates) is over the panel, with a small margin.
+    func contains(cgPoint point: CGPoint) -> Bool {
+        guard let panel, panel.isVisible else { return false }
+        let primaryHeight = NSScreen.screens.first?.frame.maxY ?? 0
+        let ns = NSPoint(x: point.x, y: primaryHeight - point.y)
+        return panel.frame.insetBy(dx: -8, dy: -8).contains(ns)
+    }
+
     /// Shows the panel under `anchor` (CG rect of the item that opened it), right edges aligned.
     func show(_ entries: [Entry], anchor: CGRect, anchorWindowID: CGWindowID?, display: DisplayInfo) {
         close(animated: false)

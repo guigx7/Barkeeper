@@ -5,6 +5,7 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     let navigation = SettingsNavigation()
     let layout: LayoutModel
+    private var changeObserver: NSObjectProtocol?
 
     init(services: AppServices) {
         layout = LayoutModel(services: services)
@@ -21,6 +22,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.minSize = NSSize(width: 720, height: 520)
         super.init(window: window)
         window.delegate = self
+        changeObserver = NotificationCenter.default.addObserver(
+            forName: .barkeeperMenuBarChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.window?.isVisible == true, self.navigation.page == .layout else { return }
+                Task { await self.layout.refresh() }
+            }
+        }
         let hosting = NSHostingController(rootView: SettingsView(navigation: navigation, layout: layout, prefs: .shared))
         // Keep the window's own size: by default the hosting controller shrinks it to the content's ideal size.
         hosting.sizingOptions = []

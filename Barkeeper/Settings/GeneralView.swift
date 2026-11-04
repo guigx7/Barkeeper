@@ -175,13 +175,6 @@ private struct MenuBarIconCard: View {
             .padding(.top, 12)
             .padding(.bottom, 12)
 
-            Divider().padding(.horizontal, Metrics.inset)
-
-            SettingsRow(label: "Show divider next to the icon",
-                        detail: "A ‹ marks where hidden items begin while they are hidden.",
-                        symbol: "chevron.compact.left", showsDivider: false) {
-                Toggle("", isOn: $prefs.showDivider).labelsHidden().toggleStyle(.switch)
-            }
             Text("The Barkeeper icon always stays visible: it cannot be moved into a hidden section.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .padding(.horizontal, Metrics.inset)

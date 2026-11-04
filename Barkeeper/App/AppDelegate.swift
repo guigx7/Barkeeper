@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
+        // The Dock caches icons per app path; set the tile from the asset catalog so it is always current.
+        if let icon = NSImage(named: "AppIcon") { NSApp.applicationIconImage = icon }
         let services = AppServices()
         AppServices.shared = services
         self.services = services
@@ -53,8 +55,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Permissions…", action: #selector(showPermissions), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Log Menu Bar Items", action: #selector(logMenuBarItems), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Show Item Images (Debug)", action: #selector(showDebugItems), keyEquivalent: "").target = self
+        // Diagnostics only when the menu is opened with ⌥ held.
+        if NSEvent.modifierFlags.contains(.option) {
+            menu.addItem(withTitle: "Log Menu Bar Items", action: #selector(logMenuBarItems), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Show Item Images (Debug)", action: #selector(showDebugItems), keyEquivalent: "").target = self
+        }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Barkeeper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         return menu

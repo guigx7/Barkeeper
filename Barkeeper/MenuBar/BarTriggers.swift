@@ -11,10 +11,17 @@ final class BarTriggers {
     /// reveal makes sense.
     var perform: ((Action) -> Void)?
     var isRevealed: (() -> Bool)?
+    /// Extra area that counts as "still hovering" after a hover reveal (the Barkeeper Bar panel).
+    var isOverRevealedUI: ((CGPoint) -> Bool)?
+    /// False while hiding would get in the way (a menu is open, an item is being opened).
+    var canHideNow: (() -> Bool)?
 
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var hoverTask: Task<Void, Never>?
+    private var leaveTask: Task<Void, Never>?
+    /// Set when hover revealed the items: they hide again once the pointer leaves.
+    private var revealedByHoverAt: ContinuousClock.Instant?
     private var scrollAccumulated = CGVector.zero
     private var scrollLockedUntil = ContinuousClock.now
     /// One action per gesture: set once a trackpad gesture fired, cleared when it ends.
@@ -120,6 +127,10 @@ final class BarTriggers {
     // MARK: - Hover
 
     private func handleHover(at point: CGPoint) {
+        if revealedByHoverAt != nil {
+            trackHoverLeave(at: point)
+            return
+        }
         guard prefs.revealOnHover, Self.menuBarDisplay(at: point) != nil, !(isRevealed?() ?? false) else {
             hoverTask?.cancel()
             hoverTask = nil
@@ -131,11 +142,57 @@ final class BarTriggers {
             try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
             guard let self, !Task.isCancelled else { return }
             self.hoverTask = nil
-            let now = NSEvent.mouseLocation
-            let cgPoint = CGPoint(x: now.x, y: (NSScreen.screens.first?.frame.maxY ?? 0) - now.y)
-            guard Self.isEmptyMenuBarSpace(cgPoint), !(self.isRevealed?() ?? false) else { return }
+            guard Self.isEmptyMenuBarSpace(Self.pointerLocation()), !(self.isRevealed?() ?? false) else { return }
+            self.revealedByHoverAt = .now
             self.perform?(.reveal)
         }
+    }
+
+    /// After a hover reveal: hide once the pointer has left the menu bar (and the Barkeeper Bar) for
+    /// a moment, waiting for any menu the user opened to close first.
+    private func trackHoverLeave(at point: CGPoint) {
+        guard let since = revealedByHoverAt else { return }
+        // The panel appears asynchronously; give it a moment before trusting "not revealed".
+        if !(isRevealed?() ?? false), ContinuousClock.now - since > .seconds(1) {
+            endHoverReveal()
+            return
+        }
+        if isInsideHoverArea(point) {
+            leaveTask?.cancel()
+            leaveTask = nil
+            return
+        }
+        guard leaveTask == nil else { return }
+        leaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            while let self, !Task.isCancelled {
+                guard self.revealedByHoverAt != nil, self.isRevealed?() ?? false else { break }
+                if self.isInsideHoverArea(Self.pointerLocation()) { break }
+                if self.canHideNow?() ?? true, NSEvent.pressedMouseButtons == 0 {
+                    self.perform?(.hide)
+                    break
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.leaveTask = nil
+            if !(self.isRevealed?() ?? false) { self.endHoverReveal() }
+        }
+    }
+
+    private func endHoverReveal() {
+        revealedByHoverAt = nil
+        leaveTask?.cancel()
+        leaveTask = nil
+    }
+
+    private func isInsideHoverArea(_ point: CGPoint) -> Bool {
+        Self.menuBarDisplay(at: point) != nil || (isOverRevealedUI?(point) ?? false)
+    }
+
+    private static func pointerLocation() -> CGPoint {
+        let now = NSEvent.mouseLocation
+        return CGPoint(x: now.x, y: (NSScreen.screens.first?.frame.maxY ?? 0) - now.y)
     }
 
     // MARK: - Geometry

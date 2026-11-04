@@ -16,6 +16,7 @@ final class AppServices {
     let prefs = Preferences.shared
     let triggers = BarTriggers()
     private var subscriptions: Set<AnyCancellable> = []
+    private var watcher: BarWatcher?
     /// Last full scan of the active bar; lets the Barkeeper Bar open without waiting for AX.
     private(set) var cachedSnapshot: MenuBarSnapshot?
 
@@ -33,16 +34,21 @@ final class AppServices {
             return self.barPanel.isVisible || self.hider.state != .hidden
         }
         triggers.perform = { [weak self] action in self?.handleTrigger(action) }
+        triggers.isOverRevealedUI = { [weak self] point in self?.barPanel.contains(cgPoint: point) ?? false }
+        triggers.canHideNow = { [weak self] in
+            guard let self else { return true }
+            return !self.activator.isBusy && !self.mover.isMoving && !WindowServer.isMenuOpen()
+        }
         triggers.start()
         prefs.$iconSymbol.dropFirst().sink { [weak self] symbol in self?.controlItems.setIcon(symbol) }
             .store(in: &subscriptions)
-        prefs.$showDivider.dropFirst().sink { [weak self] _ in
-            DispatchQueue.main.async { self.map { $0.hider.apply($0.hider.state) } }
-        }.store(in: &subscriptions)
+        watcher = BarWatcher(services: self)
         // Status item windows get their frames on the next layout pass.
-        Task { [hider] in
+        Task { [hider, weak self] in
             try? await Task.sleep(for: .milliseconds(400))
             hider.apply(.hidden)
+            try? await Task.sleep(for: .seconds(1))
+            await self?.watcher?.placeNewItems()
         }
     }
 
@@ -69,6 +75,10 @@ final class AppServices {
             moves.append(Mover.Move(item: item(ahID, .alwaysHidden), destination: .leftOf(hiddenID)))
         }
         await mover.perform(moves, on: display)
+    }
+
+    func invalidateSnapshot() {
+        cachedSnapshot = nil
     }
 
     /// The display showing the active menu bar: the one holding the Barkeeper icon's window, which

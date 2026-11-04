@@ -86,7 +86,6 @@ final class Hider {
             items.setDivider(items.hiddenDivider, collapsed: false, visible: true)
             items.setDivider(items.alwaysHiddenDivider, collapsed: false, visible: true)
         }
-        items.setIconDivider(newState == .hidden && prefs.showDivider)
         Log.menuBar.info("Hider state: \(newState.rawValue, privacy: .public)")
         updateRehideMonitor()
     }

@@ -23,7 +23,7 @@ struct AboutView: View {
                         .buttonStyle(.link)
                 }
                 .padding(.top, 10)
-                Text("© 2026 Guilherme Tavares")
+                Text("© 2026 Guilherme Abdelnor \"guigx7\"")
                     .font(.system(size: 10)).foregroundStyle(.tertiary)
                     .padding(.top, 12)
             }

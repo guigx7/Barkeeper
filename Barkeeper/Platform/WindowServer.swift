@@ -32,6 +32,17 @@ struct WindowInfo: Sendable, Hashable {
 enum WindowServer {
     /// Window level of status items (kCGStatusWindowLevel).
     static let statusItemLayer = Int(CGWindowLevelForKey(.statusWindow))
+    static let popUpMenuLayer = Int(CGWindowLevelForKey(.popUpMenuWindow))
+
+    /// A menu or a status item popover is open somewhere (menus sit at pop-up menu level; popovers at
+    /// status level but taller than the menu bar).
+    static func isMenuOpen() -> Bool {
+        let me = ProcessInfo.processInfo.processIdentifier
+        return onScreenWindows().contains { w in
+            guard w.ownerPID != me else { return false }
+            return w.layer == popUpMenuLayer || (w.layer == statusItemLayer && w.frame.height > 40)
+        }
+    }
 
     /// All windows known to the WindowServer, including off-screen ones.
     static func allWindows() -> [WindowInfo] {

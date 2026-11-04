@@ -52,7 +52,7 @@ Seletor com dois botões grandes (ícone + rótulo): **On-Demand** e **Live**. P
 
 - **On-Demand:** a barra só é reorganizada quando o usuário pede (ver 2.2). Não interfere com o mouse.
 - **Live:** ao detectar mudança na barra (app novo abriu, item mudou de posição, monitor mudou), reorganiza automaticamente. Aviso exibido: "pode interromper o mouse brevemente".
-- `[CONFIRMAR]` O que conta como "mudança detectada" e quais eventos disparam a reorganização no modo Live.
+- Modo Live: fora da v1 (não implementado).
 
 ### 1.3 Show hidden bar items
 
@@ -96,7 +96,7 @@ Painel flutuante logo abaixo da barra de menu que exibe os itens escondidos. Res
 |---|---|---|---|
 | Use Barkeeper Bar to show hidden items | toggle | off | **On:** itens revelados aparecem no painel. **Off:** são expandidos na própria barra de menu. |
 | Only on screens with a notch | toggle | off | Só vale com a opção anterior ligada: usa o painel apenas em monitores com notch. |
-| Automatically rehide | toggle | on | Itens revelados voltam a se esconder automaticamente. `[CONFIRMAR]` gatilhos (clique fora, fechar o menu do item, tempo) e intervalo. |
+| Automatically rehide | toggle | on | Itens revelados voltam a se esconder automaticamente. **Barkeeper:** sem temporizador. Re-esconde no primeiro clique fora da barra de menu; o painel fecha ao clicar fora ou depois de usar um item; um item aberto pelo painel volta a se esconder quando o menu dele fecha. Itens revelados por **hover** se escondem sempre que o cursor sai da barra (e do painel) por ~0,5 s, esperando antes qualquer menu/popover aberto fechar. |
 | Items to show on option-clicking the Barkeeper icon | seletor `All Hidden` / `Always Hidden` | Always Hidden | ⌥+clique no ícone do Barkeeper revela: `All Hidden` = Hidden + Always Hidden; `Always Hidden` = apenas Always Hidden. |
 | Show items to the right when there's no room | toggle | on | Ao clicar num item escondido que ficaria atrás do notch, ele é colocado **depois** dos itens sempre visíveis (à direita), para ficar clicável. |
 
@@ -142,7 +142,7 @@ Nota de rodapé da seção: "option-click" para mostrar itens escondidos.
 |---|---|---|---|
 | Barkeeper has a menu bar item | toggle | on | Mostra/esconde o ícone do Barkeeper na barra. **Barkeeper: não existe** — decidido com o usuário que o ícone nunca pode ser escondido. |
 | Barkeeper menu bar icon | popup | "••• More" | Escolhe o símbolo do ícone. **Barkeeper:** grade com ~70 SF Symbols num popover. |
-| Show divider (‹) between shown and hidden sections | toggle | off | Mostra um item separador "‹" entre Shown e Hidden. **Barkeeper (observado, macOS 26):** um divisor colapsado (≥ 5000 pt) cruza a borda esquerda da tela e o macOS não desenha status items nessa situação; por isso o "‹" do estado escondido é desenhado dentro da imagem do próprio ícone, à esquerda dele. Revelado, os divisores reais aparecem como sempre. |
+| Show divider (‹) between shown and hidden sections | toggle | off | Mostra um item separador "‹" entre Shown e Hidden. **Removido do Barkeeper (decisão do usuário).** Revelado, os divisores reais continuam aparecendo como "‹". |
 
 Nota de rodapé: **Barkeeper:** "O ícone do Barkeeper sempre fica visível: não pode ser movido para uma seção escondida." (o caso "ícone escondido" não existe).
 
@@ -152,7 +152,7 @@ Nota de rodapé: **Barkeeper:** "O ícone do Barkeeper sempre fica visível: nã
 
 ### 1.9 Menu do ícone do Barkeeper
 
-- `[CONFIRMAR]` O que acontece com clique simples, clique direito e ⌃+clique no ícone (revelar? menu com "Settings…", "Quit"?).
+- **Barkeeper:** clique simples alterna Hidden (ou abre a Barkeeper Bar); ⌥+clique e ⇧+clique conforme 1.4/1.5; clique direito ou ⌃+clique abre o menu: Settings… (⌘,), Permissions…, Quit Barkeeper (⌘Q). Com ⌥ pressionado ao abrir o menu aparecem também os itens de diagnóstico (Log Menu Bar Items, Show Item Images).
 
 ---
 
@@ -174,10 +174,11 @@ Cada seção é uma faixa escura que imita a barra de menu, com os ícones reais
 Interações:
 - Arrastar um item dentro de uma seção muda a ordem; entre seções muda a seção.
 - Arrastar da Palette cria um elemento novo na posição solta.
-- `[CONFIRMAR]` Itens que não podem ser movidos (relógio? Control Center? o próprio ícone do Barkeeper?).
-- `[CONFIRMAR]` Como remover um spacer/grupo (arrastar para fora? menu de contexto?).
-- `[CONFIRMAR]` Tooltip ou nome do app ao passar o mouse sobre um item.
-- `[CONFIRMAR]` Persistência: como um item é identificado entre execuções (app dono + identificador do item?) e o que acontece com itens de apps fechados.
+- **Barkeeper:** relógio e Control Center não podem ser movidos (o macOS não permite). O ícone do Barkeeper pode ser arrastado com ⌘ na barra, mas nunca fica escondido: o app devolve-o à ordem certa (ver 4.5).
+- **Barkeeper:** spacer sai pelo menu de contexto na faixa ("Remove Spacer"); grupo, pelo botão Delete do editor de grupo.
+- **Barkeeper:** tooltip com o nome do app dono ("Spacer" para espaçadores, "Group — click to edit" para grupos).
+- **Barkeeper:** identidade = bundle ID do app dono + nome do item (autosave name no macOS 26; identificador AX ou `#índice` como último recurso). Itens de apps fechados somem do layout; membros de grupo continuam salvos e voltam a aparecer quando o app abre. Itens recriados por um app (janela nova) mantêm a identidade, e o cache da barra é descartado quando apps abrem ou fecham.
+- **Itens novos (decidido com o usuário):** o macOS coloca todo item nunca visto na ponta esquerda, ou seja, dentro de Always Hidden. O Barkeeper guarda os itens já vistos (`knownItems`) e move cada item novo que nasce em Always Hidden para o início de Shown (à direita do ícone), com ⌘-drag, ~2 s e ~5 s depois de um app abrir. Na primeira execução só registra o que existe. Apps abrindo/fechando são detectados pela lista de apps em execução (KVO), porque a notificação de lançamento não vem para apps agentes (sem Dock), que são a maioria dos apps de barra.
 
 **Barkeeper (implementado na etapa 6):**
 - Soltar um item numa faixa move o item real **na hora** (o próprio arrastar é o pedido do usuário no modo On-Demand). O destino é calculado pelos vizinhos na faixa: à esquerda do vizinho da direita; se não houver, à direita do vizinho da esquerda; numa faixa vazia, junto ao divisor (Hidden/AH) ou à direita do ícone (Shown).
@@ -191,7 +192,7 @@ Interações:
 Linha "On-Demand Layout" com um cartão de status:
 - ✅ "Menu Items Organized" — a barra real corresponde ao layout salvo.
 - **Barkeeper (decidido):** além de "Organized", há "Menu Bar Differs From Layout" (laranja, com botão **Organize Now**), "Organizing…" (spinner, avisa que o mouse pode pausar), "Couldn't Organize" (vermelho, com o motivo e **Organize Now**) e, sem Accessibility, um cartão com **Grant…** no lugar das faixas.
-- No modo Live o cartão muda ou some? `[CONFIRMAR]`
+- Modo Live fora da v1.
 
 ### 2.3 Palette
 
@@ -238,7 +239,7 @@ Linha "On-Demand Layout" com um cartão de status:
 - **Barkeeper (decidido):** Accessibility é obrigatória; Screen Recording é opcional (sem ela, os ícones aparecem sem imagem).
 - Na abertura, se faltar alguma permissão, abre a janela "Barkeeper Permissions": uma linha por permissão com estado (Granted / botão **Grant…**). **Grant…** dispara o pedido do sistema e abre o painel correspondente em Ajustes do Sistema. O estado é reavaliado a cada 1 s enquanto a janela está aberta.
 - **Continue** só fica habilitado com as obrigatórias concedidas. A janela pode ser reaberta pelo menu do ícone ("Permissions…") ou abrindo o app de novo (Finder/Spotlight).
-- `[CONFIRMAR]` O que a aba Menu Bar Layout mostra sem as permissões.
+- **Barkeeper:** sem Accessibility, a aba mostra só um cartão "Accessibility permission required" com o botão Grant….
 
 ---
 
@@ -326,12 +327,12 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 
 - Os itens são movidos um a um com o arrastar com ⌘ sintético. O macOS exibe sua animação nativa de "clone" do item durante o movimento.
 - Itens fora da tela passam temporariamente pela **borda esquerda da barra visível** durante a reorganização. Uma **janela de cobertura** (acima dos status items, altura da barra, opaca) esconde essa área enquanto o movimento acontece, para o usuário não ver a bagunça. Ela é removida logo depois, em ~0,1–1 s por operação.
-- Além disso, existe uma janela de cobertura transparente permanente, do tamanho da barra, em cada tela. `[CONFIRMAR]` função: provavelmente capturar cliques/hover em áreas vazias da barra.
+- Além disso, existe uma janela de cobertura transparente permanente, do tamanho da barra, em cada tela. Função provável: capturar cliques/hover em áreas vazias. **Barkeeper não usa:** os gatilhos vêm de um event tap só de escuta (4.6), e qualquer janela sobre os itens fecharia os popovers deles.
 
 **Barkeeper, primeira execução (decidido):** o ícone e o divisor Hidden nascem na ponta direita (ao lado do Control Center/relógio) e o divisor Always Hidden nasce à esquerda de todos os itens. Os itens existentes começam em Hidden e Always Hidden começa vazio. As posições iniciais vêm de `NSStatusItem Preferred Position` (valor menor = mais à direita), gravado só se ainda não existir. Clique no ícone alterna Hidden; ⌥+clique revela tudo na barra real (Always Hidden fica à esquerda de Hidden, então não dá para revelá-lo sozinho sem o painel); ⇧+clique revela tudo se a opção 1.4 estiver ligada; clique direito ou ⌃+clique abre o menu do app. Auto-rehide (1.5) re-esconde no primeiro clique fora da barra de menu. Ao encerrar, o macOS remove os divisores e tudo volta a aparecer.
 
 **Barkeeper, regras de ordem (decididas com o usuário):**
-- Com itens revelados, os divisores ficam **sempre visíveis** como "‹", marcando a fronteira entre as seções, para o usuário ver o limite e arrastar itens com ⌘ por cima dele. Escondidos, ficam colapsados. A opção 1.6 "Show divider" passa a valer só para o estado escondido (v1: ainda não implementada).
+- Com itens revelados, os divisores ficam **sempre visíveis** como "‹", marcando a fronteira entre as seções, para o usuário ver o limite e arrastar itens com ⌘ por cima dele. Escondidos, ficam colapsados. A opção 1.6 "Show divider" foi removida.
 - O ícone do Barkeeper **nunca pode ser escondido**. Antes de colapsar um divisor, o app confere a ordem: ícone à direita do divisor Hidden e divisor Always Hidden à esquerda dele. Se o usuário arrastou o ícone (ou o divisor AH) para o lado errado, o Barkeeper revela tudo, devolve **só** o que está fora de ordem com ⌘-drag sintético e então esconde.
 - macOS 26: o `windowNumber` local de um `NSStatusItem` é um placeholder (≥ 2^32), porque a janela real pertence ao Control Center. A janela do próprio item é achada pelo título (= `autosaveName` na barra ativa).
 
@@ -343,10 +344,12 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 
 - Gatilhos de clique/scroll/hover na barra: event tap global (`CGEventTapCreate`).
 - **Barkeeper:** event tap só de escuta (`listenOnly`, sessão) para `leftMouseDown`, `scrollWheel` e `mouseMoved`; nunca altera eventos. "Área vazia" = dentro da altura da barra de uma tela, fora de qualquer status item, fora dos menus do app dono da barra (frames via AX `AXMenuBar`) e fora do notch. Clique em área vazia alterna (revela/esconde). Hover só revela, depois do atraso, se o cursor ainda estiver em área vazia; não esconde ao sair (quem esconde é o auto-rehide).
-- Abrir o menu de um item: Accessibility `AXPress` / `AXShowMenu` ou clique sintético na posição do item. `[CONFIRMAR]` qual é usado e quando.
-- Tags de janela do WindowServer (`CGSSetWindowTags`/`CGSClearWindowTags`) aparecem nas importações. `[CONFIRMAR]` propósito.
+- Abrir o menu de um item: Accessibility `AXPress` / `AXShowMenu` ou clique sintético na posição do item. **Barkeeper:** `AXPress` (depois `AXShowMenu`) no item revelado no lugar; ⌘-drag temporário só quando o item não cabe na tela mesmo revelado.
+- Tags de janela do WindowServer (`CGSSetWindowTags`/`CGSClearWindowTags`) aparecem nas importações. Propósito não investigado; o Barkeeper não precisa delas.
 
 ### 4.7 Telas e Spaces
+
+- **Barkeeper:** em mudança de telas (conectar, desconectar, resolução), descarta o cache da barra, fecha o painel e reaplica o estado dos divisores (a largura de colapso vem da maior tela conectada); o Menu Bar Layout recarrega se estiver aberto. A tela da barra ativa é a que contém a janela do ícone do Barkeeper com o autosave name como título.
 
 - Notch / tela embutida: `CGDisplayIsBuiltin` + área segura da tela. Mudanças de monitor: `CGDisplayRegisterReconfigurationCallback`.
 - Tela com a barra ativa: API privada que informa o display da barra de menu ativa.
@@ -354,4 +357,4 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 
 ### 4.8 Espaçamento
 
-- O espaçamento entre itens usa as preferências globais `NSStatusItemSpacing` e `NSStatusItemSelectionPadding` (domínio global, current host). `[CONFIRMAR]` valores de cada opção e se a referência reinicia apps para aplicar.
+- O espaçamento entre itens usa as preferências globais `NSStatusItemSpacing` e `NSStatusItemSelectionPadding` (domínio global, current host). Opção removida do Barkeeper (1.7).

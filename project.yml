@@ -28,7 +28,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        NSHumanReadableCopyright: "© 2026 Guilherme Tavares"
+        NSHumanReadableCopyright: "© 2026 Guilherme Abdelnor \"guigx7\""
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: br.tec.guigx.Barkeeper

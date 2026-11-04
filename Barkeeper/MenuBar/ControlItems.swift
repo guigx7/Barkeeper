@@ -55,14 +55,12 @@ final class ControlItems: NSObject {
         "ellipsis", "ellipsis.circle", "ellipsis.circle.fill", "ellipsis.rectangle", "circle.grid.2x1.fill",
         "circle.grid.3x3", "square.grid.2x2", "square.grid.3x3", "rectangle.grid.1x2", "line.3.horizontal",
         "line.3.horizontal.decrease", "list.bullet", "menubar.rectangle", "menubar.dock.rectangle",
-        // Single arrows and chevrons
-        "chevron.left", "chevron.right", "chevron.down", "chevron.up", "chevron.compact.left",
-        "chevron.compact.down", "chevron.left.2", "chevron.left.circle", "chevron.down.circle",
-        "chevron.left.square", "arrow.left", "arrow.right", "arrow.down", "arrow.up", "arrow.down.left",
-        "arrow.up.left", "arrow.left.circle", "arrow.down.circle", "arrow.left.square", "arrowshape.left",
-        "arrowshape.down", "arrowtriangle.left", "arrowtriangle.left.fill", "arrowtriangle.down",
-        "arrowtriangle.down.fill", "arrow.uturn.left", "arrow.turn.down.left", "arrow.down.to.line",
-        "arrow.left.to.line", "chevron.up.chevron.down", "arrow.left.and.right", "arrow.up.and.down",
+        // Left-pointing arrows and chevrons
+        "chevron.left", "chevron.compact.left", "chevron.left.2", "chevron.left.circle", "chevron.left.circle.fill",
+        "chevron.left.square", "chevron.backward", "arrow.left", "arrow.left.circle", "arrow.left.circle.fill",
+        "arrow.left.square", "arrowshape.left", "arrowshape.left.fill", "arrowtriangle.left",
+        "arrowtriangle.left.fill", "arrowtriangle.left.circle", "arrow.uturn.left", "arrow.turn.down.left",
+        "arrow.left.to.line", "arrow.backward", "decrease.indent",
         // Bees, honey, flowers
         "hexagon", "hexagon.fill", "circle.hexagongrid", "circle.hexagongrid.fill", "circle.hexagonpath",
         "camera.macro", "allergens", "ladybug", "ant", "leaf", "drop", "sun.max", "laurel.leading",
@@ -76,45 +74,16 @@ final class ControlItems: NSObject {
         "cat", "dog", "bird", "fish", "diamond", "seal", "rosette", "flag",
     ].filter { $0.hasPrefix(CustomIcons.prefix) || NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil }
 
-    /// The Barkeeper icon, optionally with the "‹" divider drawn on its left. A collapsed divider
-    /// is wider than the screen and macOS does not draw status items that cross the screen edge, so
-    /// the divider shown while items are hidden is part of the icon.
-    static func iconImage(_ symbol: String, withDivider: Bool = false) -> NSImage? {
-        guard let icon = CustomIcons.image(symbol)
+    static func iconImage(_ symbol: String) -> NSImage? {
+        let icon = CustomIcons.image(symbol)
             ?? NSImage(systemSymbolName: symbol, accessibilityDescription: "Barkeeper")
-            ?? NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Barkeeper") else { return nil }
-        guard withDivider, let chevron = NSImage(systemSymbolName: "chevron.compact.left", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular)) else {
-            icon.isTemplate = true
-            return icon
-        }
-        let gap: CGFloat = 8
-        let size = NSSize(width: chevron.size.width + gap + icon.size.width, height: max(chevron.size.height, icon.size.height))
-        let image = NSImage(size: size, flipped: false) { rect in
-            chevron.draw(in: NSRect(x: 0, y: (rect.height - chevron.size.height) / 2,
-                                    width: chevron.size.width, height: chevron.size.height),
-                         from: .zero, operation: .sourceOver, fraction: 0.55)
-            icon.draw(in: NSRect(x: chevron.size.width + gap, y: (rect.height - icon.size.height) / 2,
-                                 width: icon.size.width, height: icon.size.height))
-            return true
-        }
-        image.isTemplate = true
-        image.accessibilityDescription = "Barkeeper"
-        return image
+            ?? CustomIcons.image("custom.bee")
+        icon?.isTemplate = true
+        return icon
     }
-
-    private var iconSymbol = Preferences.shared.iconSymbol
-    private var iconShowsDivider = false
 
     func setIcon(_ symbol: String) {
-        iconSymbol = symbol
-        mainItem.button?.image = Self.iconImage(symbol, withDivider: iconShowsDivider)
-    }
-
-    func setIconDivider(_ shows: Bool) {
-        guard shows != iconShowsDivider else { return }
-        iconShowsDivider = shows
-        mainItem.button?.image = Self.iconImage(iconSymbol, withDivider: shows)
+        mainItem.button?.image = Self.iconImage(symbol)
     }
 
     private static func make(_ name: Name) -> NSStatusItem {
