@@ -20,7 +20,7 @@ final class AppServices {
         controlItems = ControlItems()
         hider = Hider(items: controlItems)
         mover = Mover(hider: hider)
-        activator = ItemActivator(mover: mover)
+        activator = ItemActivator(mover: mover, hider: hider)
         hider.repairOrder = { [weak self] in await self?.repairControlItemOrder() }
         groups.onActivate = { [weak self] group, windowID in
             Task { await self?.openGroup(group, anchorWindowID: windowID) }

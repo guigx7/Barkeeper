@@ -5,18 +5,67 @@ import AppKit
 @MainActor
 final class ItemActivator {
     private let mover: Mover
+    private let hider: Hider
     private let prefs: Preferences
     private(set) var isBusy = false
 
-    init(mover: Mover, prefs: Preferences = .shared) {
+    init(mover: Mover, hider: Hider, prefs: Preferences = .shared) {
         self.mover = mover
+        self.hider = hider
         self.prefs = prefs
     }
 
+    /// Opens the item's real menu without touching the pointer when possible: reveal its section
+    /// (dividers shrink), press it through Accessibility, rehide once the menu closes. Falls back to
+    /// moving the item with ⌘-drag only when it does not fit on screen even when revealed.
     func activate(_ item: MenuBarItem, in snapshot: MenuBarSnapshot) async {
-        guard !isBusy, let main = snapshot.controlItem(.main) else { return }
+        guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
+
+        let started = ContinuousClock.now
+        let previous = hider.state
+        let section = snapshot.section(of: item)
+        hider.apply(section == .alwaysHidden ? .revealedAll : .revealedHidden)
+
+        if let frame = await waitUntilVisible(item, on: snapshot.display), let pid = item.appPID ?? Optional(item.windowOwnerPID) {
+            let before = Set(WindowServer.onScreenWindows().map(\.windowID))
+            let (index, count) = position(of: item, in: snapshot)
+            if await AX.pressMenuBarItem(pid: pid, frame: frame, index: index, count: count) {
+                Log.menuBar.info("Opened \(item.identity.description, privacy: .public) in place via AX in \(started.duration(to: .now), privacy: .public)")
+                await waitForMenuToClose(of: item, ignoring: before)
+                hider.apply(previous)
+                return
+            }
+            Log.menuBar.notice("AXPress failed for \(item.identity.description, privacy: .public); moving it instead")
+        }
+        hider.apply(previous)
+        try? await Task.sleep(for: .milliseconds(100))
+        await activateByMoving(item, in: snapshot)
+    }
+
+    /// Index of the item among the items of the same app (left → right) and how many there are.
+    private func position(of item: MenuBarItem, in snapshot: MenuBarSnapshot) -> (Int, Int) {
+        let siblings = snapshot.items.filter { $0.identity.namespace == item.identity.namespace && $0.appPID == item.appPID }
+        return (siblings.firstIndex { $0.windowID == item.windowID } ?? 0, siblings.count)
+    }
+
+    /// Frame of the item once revealed, or nil if it stays off screen / behind the notch.
+    private func waitUntilVisible(_ item: MenuBarItem, on display: DisplayInfo) async -> CGRect? {
+        let deadline = ContinuousClock.now + .milliseconds(500)
+        while ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(30))
+            guard let frame = WindowServer.windows(ids: [item.windowID]).first?.frame else { return nil }
+            let onScreen = frame.minX >= display.bounds.minX && frame.maxX <= display.bounds.maxX
+            let behindNotch = display.notchSpan.map { frame.maxX > $0.lowerBound && frame.minX < $0.upperBound } ?? false
+            if onScreen && !behindNotch { return frame }
+        }
+        return nil
+    }
+
+    /// Fallback: ⌘-drag the item into view, click it, wait, move it back. Moves the pointer.
+    private func activateByMoving(_ item: MenuBarItem, in snapshot: MenuBarSnapshot) async {
+        guard let main = snapshot.controlItem(.main) else { return }
         let display = snapshot.display
 
         // Where to put it back: left of its right neighbour, else right of its left neighbour.
@@ -44,7 +93,11 @@ final class ItemActivator {
         }
 
         let before = Set(WindowServer.onScreenWindows().map(\.windowID))
-        click(at: CGPoint(x: frame.midX, y: frame.midY))
+        let pid = item.appPID ?? item.windowOwnerPID
+        let (axIndex, axCount) = position(of: item, in: snapshot)
+        if await !AX.pressMenuBarItem(pid: pid, frame: frame, index: axIndex, count: axCount) {
+            click(at: CGPoint(x: frame.midX, y: frame.midY))
+        }
         Log.menuBar.info("Activated \(item.identity.description, privacy: .public) in \(started.duration(to: .now), privacy: .public)")
 
         await waitForMenuToClose(of: item, ignoring: before)
