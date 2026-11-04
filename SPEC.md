@@ -61,9 +61,24 @@ Formas de revelar os itens Hidden:
 | Opção | Tipo | Padrão | Comportamento |
 |---|---|---|---|
 | Click on empty menu bar space | toggle | on | Clicar numa área vazia da barra de menu revela os itens. |
-| Swipe or scroll in menu bar | toggle | on | Rolar/deslizar com o cursor sobre a barra revela os itens. **Barkeeper (decidido):** dedos/roda para baixo revelam, para cima escondem (respeitando a rolagem natural); uma ação por gesto. |
 | Hover over empty menu bar space | toggle | off | Passar o mouse sobre área vazia da barra revela os itens. |
 | Hover delay before activating | slider | 0.2 s | Atraso do hover. **Barkeeper:** 0–1 s, passo 0,1 s, desabilitado com o hover off. |
+
+### 1.3.1 Scroll in the Menu Bar (Barkeeper, decidido com o usuário)
+
+Substitui a opção "Swipe or scroll in menu bar" da referência por uma seção dedicada. Rolar ou deslizar **em qualquer lugar** da barra de menu (não só em área vazia) executa uma ação configurável **por direção**.
+
+| Opção | Tipo | Padrão |
+|---|---|---|
+| Scroll or swipe in the menu bar | toggle | on |
+| Scroll Up | popup de ação | Hide Hidden Items |
+| Scroll Down | popup de ação | Show Hidden Items |
+| Scroll Left | popup de ação | Desktop on the Left |
+| Scroll Right | popup de ação | Desktop on the Right |
+
+- Ações: Do Nothing, Show / Hide Hidden Items, Show Hidden Items, Hide Hidden Items, Desktop on the Left, Desktop on the Right. Com a Barkeeper Bar ligada, mostrar/esconder abre/fecha o painel.
+- Direções físicas (dedos ou roda), independentes da rolagem natural. Uma ação por gesto; a inércia (momentum) é ignorada. Roda de mouse: no máximo uma ação a cada 0,5 s.
+- Trocar de mesa envia o atalho do próprio sistema "Mover para a esquerda/direita um espaço" (Mission Control, IDs 79/81 de `com.apple.symbolichotkeys`), lido das preferências do usuário; se o atalho estiver desligado, nada acontece.
 
 ### 1.4 Show always hidden bar items
 
@@ -118,6 +133,7 @@ Nota de rodapé da seção: "option-click" para mostrar itens escondidos.
 - O fechamento do menu é detectado pela janela nova que o clique abriu: dono = app do item ou o host da barra, nível acima das janelas normais, ou popover em nível de status com mais de 40 pt de altura. O app espera essa janela sumir (até 10 min). Se nenhuma janela aparece em 1,5 s (item sem menu ou que abre uma janela normal), o item volta logo.
 - Overflow: se a posição à esquerda do ícone cairia atrás do notch ou fora da tela e "Show items to the right" estiver ligado, o item é colocado à esquerda do primeiro item fixo do sistema (Control Center), ou seja, depois dos itens visíveis.
 - Re-esconder: o painel fecha com fade de 0,3 s ao clicar fora ou ao escolher um item. O painel não recebe teclado (não ativa o app), então Esc não o fecha (v1).
+- "Only on screens with a notch" decide pela tela da barra **ativa no momento do clique**: no macOS 26 cada barra tem as próprias janelas de item, então o cache da varredura é descartado quando a barra ativa mudou de tela (antes, o primeiro clique depois de trocar de monitor usava a tela anterior).
 - Hover, scroll e clique em área vazia com o painel ligado abrem o painel (mesmo efeito de um clique no ícone); clique em área vazia com o painel aberto só o fecha.
 
 ### 1.6 Barkeeper menu bar item
@@ -125,24 +141,14 @@ Nota de rodapé da seção: "option-click" para mostrar itens escondidos.
 | Opção | Tipo | Padrão | Comportamento |
 |---|---|---|---|
 | Barkeeper has a menu bar item | toggle | on | Mostra/esconde o ícone do Barkeeper na barra. **Barkeeper: não existe** — decidido com o usuário que o ícone nunca pode ser escondido. |
-| Barkeeper menu bar icon | popup | "••• More" | Escolhe o símbolo do ícone. **Barkeeper:** conjunto próprio de SF Symbols (More, More (Circle), Lines, Chevrons, Grid, Dots, Glass, Mug). |
+| Barkeeper menu bar icon | popup | "••• More" | Escolhe o símbolo do ícone. **Barkeeper:** grade com ~70 SF Symbols num popover. |
 | Show divider (‹) between shown and hidden sections | toggle | off | Mostra um item separador "‹" entre Shown e Hidden. **Barkeeper (observado, macOS 26):** um divisor colapsado (≥ 5000 pt) cruza a borda esquerda da tela e o macOS não desenha status items nessa situação; por isso o "‹" do estado escondido é desenhado dentro da imagem do próprio ícone, à esquerda dele. Revelado, os divisores reais aparecem como sempre. |
 
 Nota de rodapé: **Barkeeper:** "O ícone do Barkeeper sempre fica visível: não pode ser movido para uma seção escondida." (o caso "ícone escondido" não existe).
 
-### 1.7 Menu bar item spacing
+### 1.7 Menu bar item spacing / 1.8 Screens
 
-| Opção | Tipo | Padrão | Comportamento |
-|---|---|---|---|
-| Menu bar item spacing | popup | Default Spacing | Ajusta o espaçamento horizontal entre **todos** os itens da barra (configuração global do macOS). Mostra uma prévia ao lado. **Barkeeper (observado, macOS 26.6):** grava `NSStatusItemSpacing`/`NSStatusItemSelectionPadding` no domínio global (current host); cada app lê o valor ao iniciar (o ícone do Barkeeper foi de 31 para 21 pt com 6/6 após relançar, os itens do Control Center não mudaram). Opções: Default (apaga as chaves), Small (12/10), Smaller (8/8), Smallest (4/6). O app não reinicia outros apps; a nota pede relançar/fazer logout. |
-
-### 1.8 Screens
-
-| Opção | Tipo | Padrão | Comportamento |
-|---|---|---|---|
-| Hide all menu bar items on inactive menu bars | toggle | off | Em monitores que não são o ativo, esconde todos os itens da barra. **Barkeeper: adiado para a etapa 11.** No macOS 26 as barras inativas espelham a mesma ordem, então esconder só nelas exige cobrir a área dos itens; e qualquer janela sobre um item (mesmo em outra tela) fecha o popover que ele abre (ver 1.5). |
-| Show all menu bar items when active screen is above a set size | toggle | off | Se a largura do monitor ativo for ≥ Size, mostra todos os itens (nada escondido). |
-| Size | slider | 3000 pt | Limite de largura em pontos. Extremos ilustrados com ícone de notebook (esq.) e de monitor externo (dir.). **Barkeeper:** 1000–6000 pt, passo 100, desabilitado com a opção anterior off. A tela ativa é a que contém o ícone do Barkeeper; reavaliada a cada 2 s e em mudança de telas. |
+**Removidos do Barkeeper (decisão do usuário).** A referência tem um popup de espaçamento global entre itens (`NSStatusItemSpacing`/`NSStatusItemSelectionPadding`, lido por cada app ao iniciar) e opções por tela (esconder tudo em barras inativas; mostrar tudo em telas acima de uma largura). O Barkeeper não oferece essas opções.
 
 ### 1.9 Menu do ícone do Barkeeper
 

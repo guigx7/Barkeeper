@@ -50,16 +50,18 @@ final class ControlItems: NSObject {
     }
 
     /// Symbols offered for the Barkeeper icon (General → Barkeeper menu bar item).
-    static let iconChoices: [(symbol: String, name: String)] = [
-        ("ellipsis", "More"),
-        ("ellipsis.circle", "More (Circle)"),
-        ("line.3.horizontal", "Lines"),
-        ("chevron.left.2", "Chevrons"),
-        ("square.grid.2x2", "Grid"),
-        ("circle.grid.2x1.fill", "Dots"),
-        ("wineglass", "Glass"),
-        ("mug", "Mug"),
-    ]
+    static let iconChoices: [String] = [
+        "ellipsis", "ellipsis.circle", "ellipsis.circle.fill", "ellipsis.rectangle", "circle.grid.2x1.fill",
+        "circle.grid.3x3", "circle.hexagongrid", "square.grid.2x2", "square.grid.3x3", "rectangle.grid.1x2",
+        "line.3.horizontal", "line.3.horizontal.decrease", "list.bullet", "chevron.left.2", "chevron.left.circle",
+        "chevron.down.circle", "chevron.up.chevron.down", "arrow.left.and.right", "menubar.rectangle",
+        "menubar.dock.rectangle", "eye", "eye.slash", "archivebox", "tray", "tray.2", "shippingbox", "cube",
+        "folder", "square.stack.3d.up", "slider.horizontal.3", "switch.2", "gearshape", "command", "option",
+        "star", "heart", "bolt", "sparkles", "wand.and.stars", "flame", "leaf", "moon", "sun.max", "cloud",
+        "snowflake", "drop", "wineglass", "mug", "cup.and.saucer", "takeoutbag.and.cup.and.straw", "fork.knife",
+        "birthday.cake", "party.popper", "crown", "dice", "gamecontroller", "puzzlepiece", "pawprint", "hare",
+        "tortoise", "ant", "cat", "dog", "bird", "fish", "hexagon", "diamond", "seal", "rosette", "flag",
+    ].filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil }
 
     /// The Barkeeper icon, optionally with the "‹" divider drawn on its left. A collapsed divider
     /// is wider than the screen and macOS does not draw status items that cross the screen edge, so

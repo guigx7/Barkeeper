@@ -18,10 +18,6 @@ final class Hider {
     private(set) var state: State = .hidden
     private var outsideClickMonitor: Any?
     private var screenObserver: NSObjectProtocol?
-    private var screenPoll: Timer?
-    /// True when everything must stay revealed (General → Screens: large active screen).
-    var forceShowAll: (() -> Bool)?
-    private var forced = false
 
     init(items: ControlItems, prefs: Preferences = .shared) {
         self.items = items
@@ -30,24 +26,8 @@ final class Hider {
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self.map { $0.reevaluateForcedState() } }
+            MainActor.assumeIsolated { self.map { $0.apply($0.state) } }
         }
-        // The active menu bar follows the user between screens without a notification.
-        screenPoll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reevaluateForcedState(onlyIfChanged: true) }
-        }
-    }
-
-    /// Re-applies the current state, entering or leaving the forced "show all" mode.
-    func reevaluateForcedState(onlyIfChanged: Bool = false) {
-        let shouldForce = forceShowAll?() ?? false
-        if onlyIfChanged && shouldForce == forced { return }
-        if shouldForce != forced {
-            Log.menuBar.info("Show all on large screen: \(shouldForce ? "on" : "off", privacy: .public)")
-        }
-        let wasForced = forced
-        forced = shouldForce
-        apply(wasForced && !shouldForce ? .hidden : state)
     }
 
     /// Plain click toggles Hidden; ⌥-click reveals per preference; ⇧-click reveals everything if enabled.
@@ -91,8 +71,7 @@ final class Hider {
         applyDividers(newState)
     }
 
-    private func applyDividers(_ requested: State) {
-        let newState = forced ? .revealedAll : requested
+    private func applyDividers(_ newState: State) {
         state = newState
         // While revealed, dividers are always drawn so the section boundaries can be seen and
         // items can be ⌘-dragged across them. While hidden they are collapsed (invisible).

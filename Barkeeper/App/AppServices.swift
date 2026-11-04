@@ -34,21 +34,15 @@ final class AppServices {
         }
         triggers.perform = { [weak self] action in self?.handleTrigger(action) }
         triggers.start()
-        hider.forceShowAll = { [weak self] in self?.activeScreenIsLarge() ?? false }
         prefs.$iconSymbol.dropFirst().sink { [weak self] symbol in self?.controlItems.setIcon(symbol) }
             .store(in: &subscriptions)
         prefs.$showDivider.dropFirst().sink { [weak self] _ in
             DispatchQueue.main.async { self.map { $0.hider.apply($0.hider.state) } }
         }.store(in: &subscriptions)
-        Publishers.CombineLatest(prefs.$showAllOnLargeScreen, prefs.$largeScreenWidth).dropFirst()
-            .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
-            .sink { [weak self] _, _ in self?.hider.reevaluateForcedState() }
-            .store(in: &subscriptions)
         // Status item windows get their frames on the next layout pass.
         Task { [hider] in
             try? await Task.sleep(for: .milliseconds(400))
             hider.apply(.hidden)
-            hider.reevaluateForcedState(onlyIfChanged: true)
         }
     }
 
@@ -77,6 +71,14 @@ final class AppServices {
         await mover.perform(moves, on: display)
     }
 
+    /// The display showing the active menu bar: the one holding the Barkeeper icon's window, which
+    /// carries its autosave name only there.
+    func activeDisplay() -> DisplayInfo? {
+        guard let mainID = controlItems.windowID(.main),
+              let frame = WindowServer.windows(ids: [mainID]).first?.frame else { return nil }
+        return Displays.display(forMenuBarWindow: frame, in: Displays.current())
+    }
+
     /// Fresh snapshot of the active menu bar.
     func activeSnapshot() async -> MenuBarSnapshot? {
         let snapshots = await ItemScanner.scan()
@@ -88,6 +90,12 @@ final class AppServices {
     /// Cached snapshot with frames re-read from the WindowServer (fast), or a full scan if the cache
     /// is missing or stale (a window vanished).
     func quickSnapshot() async -> MenuBarSnapshot? {
+        // The active menu bar moves with the user between screens; each bar has its own item windows,
+        // so a cache taken on another screen is stale even when all its windows still exist.
+        if let cached = cachedSnapshot, let display = activeDisplay(), display.id != cached.display.id {
+            Log.menuBar.info("Active menu bar moved to \(display.name, privacy: .public); rescanning")
+            return await activeSnapshot()
+        }
         if let cached = cachedSnapshot {
             let infos = Dictionary(WindowServer.windows(ids: cached.items.map(\.windowID)).map { ($0.windowID, $0) },
                                    uniquingKeysWith: { a, _ in a })
@@ -126,15 +134,16 @@ final class AppServices {
         case .hide:
             if barPanel.isVisible { barPanel.close(animated: true) }
             if hider.state != .hidden { hider.apply(.hidden) }
+        case .scroll(let scrollAction):
+            switch scrollAction {
+            case .none: break
+            case .toggleHidden: handleTrigger(revealed ? .hide : .reveal)
+            case .showHidden: handleTrigger(.reveal)
+            case .hideHidden: handleTrigger(.hide)
+            case .desktopLeft: SpaceSwitcher.move(.left)
+            case .desktopRight: SpaceSwitcher.move(.right)
+            }
         }
-    }
-
-    /// "Show all items when the active screen is above a set size" (General → Screens).
-    private func activeScreenIsLarge() -> Bool {
-        guard prefs.showAllOnLargeScreen, let mainID = controlItems.windowID(.main),
-              let frame = WindowServer.windows(ids: [mainID]).first?.frame,
-              let display = Displays.display(forMenuBarWindow: frame, in: Displays.current()) else { return false }
-        return display.bounds.width >= prefs.largeScreenWidth
     }
 
     // MARK: - Barkeeper icon

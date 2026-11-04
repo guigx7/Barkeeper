@@ -4,7 +4,7 @@ import AppKit
 /// Listens through a listen-only event tap (needs Accessibility); events are never altered.
 @MainActor
 final class BarTriggers {
-    enum Action { case toggle, reveal, hide }
+    enum Action { case toggle, reveal, hide, scroll(Preferences.ScrollAction) }
 
     private let prefs: Preferences
     /// Called with the action to perform; `isRevealed` tells the triggers whether a hover/scroll
@@ -15,8 +15,10 @@ final class BarTriggers {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var hoverTask: Task<Void, Never>?
-    private var scrollAccumulated: CGFloat = 0
+    private var scrollAccumulated = CGVector.zero
     private var scrollLockedUntil = ContinuousClock.now
+    /// One action per gesture: set once a trackpad gesture fired, cleared when it ends.
+    private var gestureConsumed = false
 
     init(prefs: Preferences = .shared) {
         self.prefs = prefs
@@ -32,9 +34,15 @@ final class BarTriggers {
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<BarTriggers>.fromOpaque(refcon).takeUnretainedValue()
             let location = event.location
-            let delta = CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1))
-            let inverted = NSEvent(cgEvent: event)?.isDirectionInvertedFromDevice ?? false
-            MainActor.assumeIsolated { me.handle(type, at: location, scrollDelta: delta, inverted: inverted) }
+            var scroll: Scroll?
+            if type == .scrollWheel {
+                scroll = Scroll(dx: CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
+                                dy: CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1)),
+                                phase: event.getIntegerValueField(.scrollWheelEventScrollPhase),
+                                momentum: event.getIntegerValueField(.scrollWheelEventMomentumPhase),
+                                inverted: NSEvent(cgEvent: event)?.isDirectionInvertedFromDevice ?? false)
+            }
+            MainActor.assumeIsolated { me.handle(type, at: location, scroll: scroll) }
             return Unmanaged.passUnretained(event)
         }, userInfo: refcon) else {
             Log.app.error("Bar triggers: could not create event tap (Accessibility missing?)")
@@ -47,7 +55,16 @@ final class BarTriggers {
         Log.app.info("Bar triggers: event tap installed")
     }
 
-    private func handle(_ type: CGEventType, at point: CGPoint, scrollDelta: CGFloat, inverted: Bool) {
+    struct Scroll {
+        let dx: CGFloat, dy: CGFloat
+        /// Trackpad gesture phase (0 = none, i.e. a mouse wheel; 1 = began; 4 = ended; 8 = cancelled).
+        let phase: Int64
+        /// Non-zero while the system replays inertia after the fingers lift.
+        let momentum: Int64
+        let inverted: Bool
+    }
+
+    private func handle(_ type: CGEventType, at point: CGPoint, scroll: Scroll?) {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
@@ -55,7 +72,7 @@ final class BarTriggers {
             guard prefs.revealOnEmptyClick, Self.isEmptyMenuBarSpace(point) else { return }
             perform?(.toggle)
         case .scrollWheel:
-            handleScroll(at: point, delta: scrollDelta, inverted: inverted)
+            if let scroll { handleScroll(at: point, scroll) }
         case .mouseMoved:
             handleHover(at: point)
         default:
@@ -65,26 +82,39 @@ final class BarTriggers {
 
     // MARK: - Scroll
 
-    /// Fingers (or wheel) moving down reveals, up hides: the same as pulling the items down out of
-    /// the bar. One action per gesture.
-    private func handleScroll(at point: CGPoint, delta: CGFloat, inverted: Bool) {
-        guard prefs.revealOnScroll, delta != 0, Self.menuBarDisplay(at: point) != nil else {
-            scrollAccumulated = 0
+    /// Scrolling or swiping anywhere in a menu bar runs the action set for that direction.
+    /// Directions are physical (fingers / wheel), so they do not flip with natural scrolling.
+    /// One action per gesture; inertia is ignored.
+    private func handleScroll(at point: CGPoint, _ scroll: Scroll) {
+        if scroll.phase == 1 { gestureConsumed = false; scrollAccumulated = .zero }
+        guard prefs.scrollEnabled, scroll.momentum == 0, Self.menuBarDisplay(at: point) != nil else {
+            if scroll.momentum == 0 { scrollAccumulated = .zero }
             return
         }
-        guard ContinuousClock.now >= scrollLockedUntil else { return }
-        // Natural scrolling reports fingers-down as positive delta; classic scrolling as negative.
-        scrollAccumulated += inverted ? delta : -delta
-        guard abs(scrollAccumulated) >= 6 else { return }
-        let down = scrollAccumulated > 0
-        scrollAccumulated = 0
-        scrollLockedUntil = .now + .milliseconds(600)
-        let revealed = isRevealed?() ?? false
-        if down, !revealed {
-            perform?(.reveal)
-        } else if !down, revealed {
-            perform?(.hide)
+        if scroll.phase == 4 || scroll.phase == 8 {
+            gestureConsumed = false
+            scrollAccumulated = .zero
+            return
         }
+        guard !gestureConsumed, ContinuousClock.now >= scrollLockedUntil else { return }
+        // Natural scrolling reports fingers moving down/right as positive deltas.
+        let sign: CGFloat = scroll.inverted ? 1 : -1
+        scrollAccumulated.dx += scroll.dx * sign
+        scrollAccumulated.dy += scroll.dy * sign
+        let threshold: CGFloat = 8
+        guard max(abs(scrollAccumulated.dx), abs(scrollAccumulated.dy)) >= threshold else { return }
+        let direction: Preferences.ScrollDirection = abs(scrollAccumulated.dy) >= abs(scrollAccumulated.dx)
+            ? (scrollAccumulated.dy > 0 ? .down : .up)
+            : (scrollAccumulated.dx > 0 ? .right : .left)
+        scrollAccumulated = .zero
+        if scroll.phase == 0 {
+            scrollLockedUntil = .now + .milliseconds(500) // mouse wheel: no gesture phases
+        } else {
+            gestureConsumed = true
+        }
+        let action = prefs.scrollActions[direction] ?? Preferences.ScrollAction.none
+        Log.app.info("Scroll \(direction.rawValue, privacy: .public) in menu bar → \(action.rawValue, privacy: .public)")
+        if action != .none { perform?(.scroll(action)) }
     }
 
     // MARK: - Hover

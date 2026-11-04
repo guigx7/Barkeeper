@@ -6,6 +6,49 @@ final class Preferences: ObservableObject {
     static let shared = Preferences()
     private let defaults = UserDefaults.standard
 
+    /// What scrolling or swiping in the menu bar does, per direction.
+    enum ScrollAction: String, CaseIterable, Identifiable, Sendable {
+        case none, toggleHidden, showHidden, hideHidden, desktopLeft, desktopRight
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .none: "Do Nothing"
+            case .toggleHidden: "Show / Hide Hidden Items"
+            case .showHidden: "Show Hidden Items"
+            case .hideHidden: "Hide Hidden Items"
+            case .desktopLeft: "Desktop on the Left"
+            case .desktopRight: "Desktop on the Right"
+            }
+        }
+    }
+
+    enum ScrollDirection: String, CaseIterable, Identifiable, Sendable {
+        case up, down, left, right
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .up: "Scroll Up"
+            case .down: "Scroll Down"
+            case .left: "Scroll Left"
+            case .right: "Scroll Right"
+            }
+        }
+        var symbol: String { "arrow.\(rawValue)" }
+        var defaultAction: ScrollAction {
+            switch self {
+            case .up: .hideHidden
+            case .down: .showHidden
+            case .left: .desktopLeft
+            case .right: .desktopRight
+            }
+        }
+        var key: String { "scrollAction.\(rawValue)" }
+    }
+
+    @Published var scrollActions: [ScrollDirection: ScrollAction] {
+        didSet { for (d, a) in scrollActions { defaults.set(a.rawValue, forKey: d.key) } }
+    }
+
     enum OptionClickItems: String, CaseIterable, Sendable {
         case allHidden, alwaysHidden
     }
@@ -18,12 +61,10 @@ final class Preferences: ObservableObject {
     @Published var barOnlyOnNotch: Bool { didSet { defaults.set(barOnlyOnNotch, forKey: Keys.barOnlyOnNotch) } }
     @Published var showItemsToRight: Bool { didSet { defaults.set(showItemsToRight, forKey: Keys.showItemsToRight) } }
     @Published var revealOnEmptyClick: Bool { didSet { defaults.set(revealOnEmptyClick, forKey: Keys.revealOnEmptyClick) } }
-    @Published var revealOnScroll: Bool { didSet { defaults.set(revealOnScroll, forKey: Keys.revealOnScroll) } }
+    @Published var scrollEnabled: Bool { didSet { defaults.set(scrollEnabled, forKey: Keys.scrollEnabled) } }
     @Published var revealOnHover: Bool { didSet { defaults.set(revealOnHover, forKey: Keys.revealOnHover) } }
     @Published var hoverDelay: Double { didSet { defaults.set(hoverDelay, forKey: Keys.hoverDelay) } }
     @Published var iconSymbol: String { didSet { defaults.set(iconSymbol, forKey: Keys.iconSymbol) } }
-    @Published var showAllOnLargeScreen: Bool { didSet { defaults.set(showAllOnLargeScreen, forKey: Keys.showAllOnLargeScreen) } }
-    @Published var largeScreenWidth: Double { didSet { defaults.set(largeScreenWidth, forKey: Keys.largeScreenWidth) } }
 
     private enum Keys {
         static let showDivider = "showDivider"
@@ -34,12 +75,10 @@ final class Preferences: ObservableObject {
         static let barOnlyOnNotch = "barOnlyOnNotch"
         static let showItemsToRight = "showItemsToRight"
         static let revealOnEmptyClick = "revealOnEmptyClick"
-        static let revealOnScroll = "revealOnScroll"
+        static let scrollEnabled = "scrollEnabled"
         static let revealOnHover = "revealOnHover"
         static let hoverDelay = "hoverDelay"
         static let iconSymbol = "iconSymbol"
-        static let showAllOnLargeScreen = "showAllOnLargeScreen"
-        static let largeScreenWidth = "largeScreenWidth"
     }
 
     private init() {
@@ -52,12 +91,10 @@ final class Preferences: ObservableObject {
             Keys.barOnlyOnNotch: false,
             Keys.showItemsToRight: true,
             Keys.revealOnEmptyClick: true,
-            Keys.revealOnScroll: true,
+            Keys.scrollEnabled: true,
             Keys.revealOnHover: false,
             Keys.hoverDelay: 0.2,
             Keys.iconSymbol: "ellipsis",
-            Keys.showAllOnLargeScreen: false,
-            Keys.largeScreenWidth: 3000.0,
         ])
         showDivider = defaults.bool(forKey: Keys.showDivider)
         shiftClickShowsAll = defaults.bool(forKey: Keys.shiftClickShowsAll)
@@ -67,11 +104,13 @@ final class Preferences: ObservableObject {
         barOnlyOnNotch = defaults.bool(forKey: Keys.barOnlyOnNotch)
         showItemsToRight = defaults.bool(forKey: Keys.showItemsToRight)
         revealOnEmptyClick = defaults.bool(forKey: Keys.revealOnEmptyClick)
-        revealOnScroll = defaults.bool(forKey: Keys.revealOnScroll)
+        scrollEnabled = defaults.bool(forKey: Keys.scrollEnabled)
+        let store = defaults
+        scrollActions = Dictionary(uniqueKeysWithValues: ScrollDirection.allCases.map { d in
+            (d, store.string(forKey: d.key).flatMap(ScrollAction.init(rawValue:)) ?? d.defaultAction)
+        })
         revealOnHover = defaults.bool(forKey: Keys.revealOnHover)
         hoverDelay = defaults.double(forKey: Keys.hoverDelay)
         iconSymbol = defaults.string(forKey: Keys.iconSymbol) ?? "ellipsis"
-        showAllOnLargeScreen = defaults.bool(forKey: Keys.showAllOnLargeScreen)
-        largeScreenWidth = defaults.double(forKey: Keys.largeScreenWidth)
     }
 }

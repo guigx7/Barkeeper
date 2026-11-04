@@ -3,7 +3,6 @@ import SwiftUI
 struct GeneralView: View {
     @ObservedObject var prefs: Preferences
     @StateObject private var loginItem = LoginItem()
-    @State private var spacing = ItemSpacing.current
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -26,10 +25,6 @@ struct GeneralView: View {
                 SettingsRow(label: "Click on empty menu bar space") {
                     Toggle("", isOn: $prefs.revealOnEmptyClick).labelsHidden().toggleStyle(.switch)
                 }
-                SettingsRow(label: "Swipe or scroll in the menu bar",
-                            detail: "Down reveals, up hides.") {
-                    Toggle("", isOn: $prefs.revealOnScroll).labelsHidden().toggleStyle(.switch)
-                }
                 SettingsRow(label: "Hover over empty menu bar space") {
                     Toggle("", isOn: $prefs.revealOnHover).labelsHidden().toggleStyle(.switch)
                 }
@@ -41,6 +36,18 @@ struct GeneralView: View {
                             .fixedSize().frame(width: 36, alignment: .trailing)
                     }
                     .disabled(!prefs.revealOnHover)
+                }
+            }
+
+            SettingsCard(title: "Scroll in the Menu Bar",
+                         footnote: "Works anywhere on the menu bar, with a mouse wheel or a trackpad swipe. Switching desktops uses the Mission Control shortcuts in System Settings → Keyboard → Keyboard Shortcuts.") {
+                SettingsRow(label: "Scroll or swipe in the menu bar") {
+                    Toggle("", isOn: $prefs.scrollEnabled).labelsHidden().toggleStyle(.switch)
+                }
+                ForEach(Preferences.ScrollDirection.allCases) { direction in
+                    ScrollActionRow(direction: direction, prefs: prefs,
+                                    showsDivider: direction != Preferences.ScrollDirection.allCases.last)
+                        .disabled(!prefs.scrollEnabled)
                 }
             }
 
@@ -86,13 +93,7 @@ struct GeneralView: View {
             SettingsCard(title: "Barkeeper Menu Bar Item",
                          footnote: "The Barkeeper icon always stays visible: it cannot be moved into a hidden section.") {
                 SettingsRow(label: "Icon") {
-                    Picker("", selection: $prefs.iconSymbol) {
-                        ForEach(ControlItems.iconChoices, id: \.symbol) { choice in
-                            Label(choice.name, systemImage: choice.symbol).tag(choice.symbol)
-                        }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+                    IconPicker(selection: $prefs.iconSymbol)
                 }
                 SettingsRow(label: "Show divider between shown and hidden items",
                             detail: "Keeps a ‹ next to the Barkeeper icon while items are hidden.",
@@ -101,57 +102,69 @@ struct GeneralView: View {
                 }
             }
 
-            SettingsCard(title: "Menu Bar Item Spacing",
-                         footnote: "A system-wide setting. Apps pick it up when they relaunch; log out to apply it everywhere.") {
-                SettingsRow(label: "Spacing between all menu bar items", showsDivider: false) {
-                    HStack(spacing: 12) {
-                        SpacingPreview(spacing: spacing)
-                        Picker("", selection: $spacing) {
-                            ForEach(ItemSpacing.allCases) { Text($0.title).tag($0) }
-                        }
-                        .labelsHidden()
-                        .fixedSize()
-                        .onChange(of: spacing) { _, new in new.apply() }
-                    }
-                }
-            }
-
-            SettingsCard(title: "Screens") {
-                SettingsRow(label: "Show all items when the active screen is wide enough",
-                            detail: "Nothing is hidden on screens at least this wide.") {
-                    Toggle("", isOn: $prefs.showAllOnLargeScreen).labelsHidden().toggleStyle(.switch)
-                }
-                SettingsRow(label: "Minimum width", showsDivider: false) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "laptopcomputer").foregroundStyle(.secondary)
-                        Slider(value: $prefs.largeScreenWidth, in: 1000...6000, step: 100).frame(width: 160)
-                        Image(systemName: "display").foregroundStyle(.secondary)
-                        Text("\(Int(prefs.largeScreenWidth)) pt").monospacedDigit().foregroundStyle(.secondary)
-                            .frame(width: 60, alignment: .trailing)
-                    }
-                    .disabled(!prefs.showAllOnLargeScreen)
-                }
-            }
         }
         .onAppear { loginItem.refresh() }
     }
 }
 
-/// Three dots on a bar strip, spaced like the chosen setting.
-private struct SpacingPreview: View {
-    let spacing: ItemSpacing
+private struct ScrollActionRow: View {
+    let direction: Preferences.ScrollDirection
+    @ObservedObject var prefs: Preferences
+    let showsDivider: Bool
 
     var body: some View {
-        let gap = CGFloat((spacing.values?.spacing ?? 16) + (spacing.values?.padding ?? 16)) / 2.2
-        HStack(spacing: gap) {
-            ForEach(["wifi", "battery.75percent", "magnifyingglass"], id: \.self) {
-                Image(systemName: $0).font(.system(size: 11))
+        SettingsRow(label: direction.title, showsDivider: showsDivider) {
+            Picker("", selection: Binding(
+                get: { prefs.scrollActions[direction] ?? Preferences.ScrollAction.none },
+                set: { prefs.scrollActions[direction] = $0 })) {
+                ForEach(Preferences.ScrollAction.allCases) { action in
+                    Text(action.title).tag(action)
+                    if action == .none { Divider() }
+                }
             }
+            .labelsHidden()
+            .fixedSize()
         }
-        .foregroundStyle(.white.opacity(0.9))
-        .padding(.horizontal, 10)
-        .frame(height: 22)
-        .background(Color.barStrip, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .animation(.easeOut(duration: 0.2), value: spacing)
+    }
+}
+
+/// The current icon as a button; opens a grid of every available symbol.
+private struct IconPicker: View {
+    @Binding var selection: String
+    @State private var isPresented = false
+
+    var body: some View {
+        Button { isPresented.toggle() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: selection).frame(width: 20)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+        }
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(34), spacing: 6), count: 8), spacing: 6) {
+                    ForEach(ControlItems.iconChoices, id: \.self) { symbol in
+                        Button {
+                            selection = symbol
+                            isPresented = false
+                        } label: {
+                            Image(systemName: symbol)
+                                .font(.system(size: 14))
+                                .frame(width: 34, height: 30)
+                                .background(symbol == selection ? Color.accentColor.opacity(0.25) : Color.primary.opacity(0.05),
+                                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .strokeBorder(symbol == selection ? Color.accentColor : .clear, lineWidth: 1.5))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(symbol)
+                    }
+                }
+                .padding(12)
+            }
+            .frame(height: 260)
+        }
     }
 }
