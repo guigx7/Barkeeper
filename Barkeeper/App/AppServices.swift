@@ -135,39 +135,33 @@ final class AppServices {
     /// Click / scroll / hover on empty menu bar space.
     private func handleTrigger(_ action: BarTriggers.Action) {
         // While items move or an item's menu is open the dividers belong to that operation.
-        if mover.isMoving || activator.isBusy, !isSpaceSwitch(action) { return }
+        if mover.isMoving || activator.isBusy, !isSystemAction(action) { return }
         let revealed = barPanel.isVisible || hider.state != .hidden
         switch action {
-        case .toggle:
-            // The panel closes itself on outside clicks; a click on empty bar space while it is
-            // open only closes it.
-            if barPanel.isVisible {
-                barPanel.close(animated: true)
-            } else if revealed {
-                hider.apply(.hidden)
-            } else {
-                handleIconClick([])
-            }
         case .reveal:
             if !revealed { handleIconClick([]) }
         case .hide:
             if barPanel.isVisible { barPanel.close(animated: true) }
             if hider.state != .hidden { hider.apply(.hidden) }
-        case .scroll(let scrollAction):
-            switch scrollAction {
+        case .run(let barAction):
+            switch barAction {
             case .none: break
             case .toggleHidden: handleTrigger(revealed ? .hide : .reveal)
             case .showHidden: handleTrigger(.reveal)
             case .hideHidden: handleTrigger(.hide)
             case .desktopLeft: SpaceSwitcher.move(.left)
             case .desktopRight: SpaceSwitcher.move(.right)
+            case .missionControl: MissionControl.show(.all)
+            case .appExpose: MissionControl.show(.frontApp)
+            case .showDesktop: MissionControl.show(.desktop)
             }
         }
     }
 
-    private func isSpaceSwitch(_ action: BarTriggers.Action) -> Bool {
-        if case .scroll(let a) = action { return a == .desktopLeft || a == .desktopRight }
-        return false
+    /// Actions that don't touch the menu bar can run any time.
+    private func isSystemAction(_ action: BarTriggers.Action) -> Bool {
+        guard case .run(let a) = action else { return false }
+        return [.desktopLeft, .desktopRight, .missionControl, .appExpose, .showDesktop].contains(a)
     }
 
     // MARK: - Barkeeper icon

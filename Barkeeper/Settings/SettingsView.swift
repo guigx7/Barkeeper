@@ -23,7 +23,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// Words the sidebar search matches besides the title.
     var keywords: [String] {
         switch self {
-        case .general: ["login", "start", "hover", "click", "scroll", "swipe", "desktop", "space", "bar", "notch",
+        case .general: ["login", "start", "hover", "click", "scroll", "swipe", "desktop", "space", "mission control",
+                        "expose", "exposé", "show desktop", "right click", "middle click", "actions", "bar", "notch",
                         "rehide", "hide", "option", "shift", "icon", "divider", "bee"]
         case .layout: ["items", "hidden", "always hidden", "shown", "drag", "spacer", "group", "organize"]
         case .about: ["version", "website", "support", "feedback", "logs", "debug", "quit"]

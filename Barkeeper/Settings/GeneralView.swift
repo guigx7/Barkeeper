@@ -25,11 +25,9 @@ struct GeneralView: View {
             MenuBarIconCard(prefs: prefs)
 
             SettingsCard(title: "Show Hidden Items") {
-                SettingsRow(label: "Click on empty menu bar space", detail: "Click again to hide them.",
-                            symbol: "cursorarrow.click") {
-                    Toggle("", isOn: $prefs.revealOnEmptyClick).labelsHidden().toggleStyle(.switch)
-                }
-                SettingsRow(label: "Hover over empty menu bar space", symbol: "cursorarrow.motionlines",
+                SettingsRow(label: "Hover over empty menu bar space",
+                            detail: "They hide again when the pointer leaves the menu bar.",
+                            symbol: "cursorarrow.motionlines",
                             showsDivider: false) {
                     Toggle("", isOn: $prefs.revealOnHover).labelsHidden().toggleStyle(.switch)
                 }
@@ -44,16 +42,24 @@ struct GeneralView: View {
                 }
             }
 
-            SettingsCard(title: "Scroll in the Menu Bar",
-                         footnote: "Switching desktops uses the Mission Control shortcuts in System Settings → Keyboard → Keyboard Shortcuts.") {
-                SettingsRow(label: "Scroll or swipe in the menu bar",
-                            detail: "Anywhere on the menu bar, with a mouse wheel or a trackpad.",
-                            symbol: "scroll", showsDivider: false) {
-                    Toggle("", isOn: $prefs.scrollEnabled).labelsHidden().toggleStyle(.switch)
+            SettingsCard(title: "Menu Bar Actions",
+                         footnote: "Switching desktops uses the shortcuts in System Settings → Keyboard → Keyboard Shortcuts → Mission Control.") {
+                SettingsRow(label: "Click on empty space",
+                            detail: "Away from menu bar items, app menus and the notch.",
+                            symbol: "cursorarrow.click", showsDivider: false) { EmptyView() }
+                ForEach(Preferences.ClickButton.allCases) { button in
+                    ActionRow(title: button.title, action: Binding(
+                        get: { prefs.clickActions[button] ?? Preferences.BarAction.none },
+                        set: { prefs.clickActions[button] = $0 }))
                 }
+                Divider().padding(.horizontal, Metrics.inset).padding(.vertical, 4)
+                SettingsRow(label: "Scroll or swipe",
+                            detail: "Anywhere on the menu bar, with a mouse wheel or a trackpad.",
+                            symbol: "scroll", showsDivider: false) { EmptyView() }
                 ForEach(Preferences.ScrollDirection.allCases) { direction in
-                    ScrollActionRow(direction: direction, prefs: prefs)
-                        .disabled(!prefs.scrollEnabled)
+                    ActionRow(title: direction.title, action: Binding(
+                        get: { prefs.scrollActions[direction] ?? Preferences.BarAction.none },
+                        set: { prefs.scrollActions[direction] = $0 }))
                 }
             }
 
@@ -100,18 +106,17 @@ struct GeneralView: View {
     }
 }
 
-private struct ScrollActionRow: View {
-    let direction: Preferences.ScrollDirection
-    @ObservedObject var prefs: Preferences
+/// One click or scroll gesture and the action it runs.
+private struct ActionRow: View {
+    let title: String
+    @Binding var action: Preferences.BarAction
 
     var body: some View {
-        SettingsRow(label: direction.title, indented: true, showsDivider: false) {
-            Picker("", selection: Binding(
-                get: { prefs.scrollActions[direction] ?? Preferences.ScrollAction.none },
-                set: { prefs.scrollActions[direction] = $0 })) {
-                ForEach(Preferences.ScrollAction.allCases) { action in
-                    Text(action.title).tag(action)
-                    if action == .none { Divider() }
+        SettingsRow(label: title, indented: true, showsDivider: false) {
+            Picker("", selection: $action) {
+                ForEach(Preferences.BarAction.allCases) { option in
+                    if option.startsGroup { Divider() }
+                    Text(option.title).tag(option)
                 }
             }
             .labelsHidden()

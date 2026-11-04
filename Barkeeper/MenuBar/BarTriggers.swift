@@ -1,10 +1,11 @@
 import AppKit
 
-/// Reveals hidden items from gestures on empty menu bar space: click, scroll/swipe and hover.
+/// Runs actions from gestures in the menu bar: clicks on empty space, scroll/swipe anywhere, and
+/// hover over empty space (reveals hidden items).
 /// Listens through a listen-only event tap (needs Accessibility); events are never altered.
 @MainActor
 final class BarTriggers {
-    enum Action { case toggle, reveal, hide, scroll(Preferences.ScrollAction) }
+    enum Action { case reveal, hide, run(Preferences.BarAction) }
 
     private let prefs: Preferences
     /// Called with the action to perform; `isRevealed` tells the triggers whether a hover/scroll
@@ -35,7 +36,8 @@ final class BarTriggers {
 
     func start() {
         guard tap == nil else { return }
-        let mask: CGEventMask = (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.scrollWheel.rawValue)
+        let mask: CGEventMask = (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.rightMouseDown.rawValue)
+            | (1 << CGEventType.otherMouseDown.rawValue) | (1 << CGEventType.scrollWheel.rawValue)
             | (1 << CGEventType.mouseMoved.rawValue)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .tailAppendEventTap, options: .listenOnly,
@@ -43,6 +45,7 @@ final class BarTriggers {
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<BarTriggers>.fromOpaque(refcon).takeUnretainedValue()
             let location = event.location
+            let button = event.getIntegerValueField(.mouseEventButtonNumber)
             var scroll: Scroll?
             if type == .scrollWheel {
                 scroll = Scroll(dx: CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)),
@@ -51,7 +54,7 @@ final class BarTriggers {
                                 momentum: event.getIntegerValueField(.scrollWheelEventMomentumPhase),
                                 inverted: NSEvent(cgEvent: event)?.isDirectionInvertedFromDevice ?? false)
             }
-            MainActor.assumeIsolated { me.handle(type, at: location, scroll: scroll) }
+            MainActor.assumeIsolated { me.handle(type, at: location, button: button, scroll: scroll) }
             return Unmanaged.passUnretained(event)
         }, userInfo: refcon) else {
             Log.app.error("Bar triggers: could not create event tap (Accessibility missing?)")
@@ -73,13 +76,17 @@ final class BarTriggers {
         let inverted: Bool
     }
 
-    private func handle(_ type: CGEventType, at point: CGPoint, scroll: Scroll?) {
+    private func handle(_ type: CGEventType, at point: CGPoint, button: Int64, scroll: Scroll?) {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
         case .leftMouseDown:
-            guard prefs.revealOnEmptyClick, Self.isEmptyMenuBarSpace(point) else { return }
-            perform?(.toggle)
+            handleClick(.left, at: point)
+        case .rightMouseDown:
+            handleClick(.right, at: point)
+        case .otherMouseDown:
+            // Button 2 is the middle button; 3 and up are back/forward and extras.
+            if button == 2 { handleClick(.middle, at: point) }
         case .scrollWheel:
             if let scroll { handleScroll(at: point, scroll) }
         case .mouseMoved:
@@ -89,6 +96,15 @@ final class BarTriggers {
         }
     }
 
+    // MARK: - Click
+
+    private func handleClick(_ button: Preferences.ClickButton, at point: CGPoint) {
+        let action = prefs.clickActions[button] ?? Preferences.BarAction.none
+        guard action != .none, Self.isEmptyMenuBarSpace(point) else { return }
+        Log.app.info("\(button.title, privacy: .public) on empty menu bar space → \(action.rawValue, privacy: .public)")
+        perform?(.run(action))
+    }
+
     // MARK: - Scroll
 
     /// Scrolling or swiping anywhere in a menu bar runs the action set for that direction.
@@ -96,7 +112,7 @@ final class BarTriggers {
     /// One action per gesture; inertia is ignored.
     private func handleScroll(at point: CGPoint, _ scroll: Scroll) {
         if scroll.phase == 1 { gestureConsumed = false; scrollAccumulated = .zero }
-        guard prefs.scrollEnabled, scroll.momentum == 0, Self.menuBarDisplay(at: point) != nil else {
+        guard scroll.momentum == 0, Self.menuBarDisplay(at: point) != nil else {
             if scroll.momentum == 0 { scrollAccumulated = .zero }
             return
         }
@@ -121,9 +137,9 @@ final class BarTriggers {
         } else {
             gestureConsumed = true
         }
-        let action = prefs.scrollActions[direction] ?? Preferences.ScrollAction.none
+        let action = prefs.scrollActions[direction] ?? Preferences.BarAction.none
         Log.app.info("Scroll \(direction.rawValue, privacy: .public) in menu bar → \(action.rawValue, privacy: .public)")
-        if action != .none { perform?(.scroll(action)) }
+        if action != .none { perform?(.run(action)) }
     }
 
     // MARK: - Hover

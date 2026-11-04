@@ -64,21 +64,27 @@ Formas de revelar os itens Hidden:
 | Hover over empty menu bar space | toggle | off | Passar o mouse sobre área vazia da barra revela os itens. |
 | Hover delay before activating | slider | 0.2 s | Atraso do hover. **Barkeeper:** 0–1 s, passo 0,1 s, desabilitado com o hover off. |
 
-### 1.3.1 Scroll in the Menu Bar (Barkeeper, decidido com o usuário)
+### 1.3.1 Menu Bar Actions (Barkeeper, decidido com o usuário)
 
-Substitui a opção "Swipe or scroll in menu bar" da referência por uma seção dedicada. Rolar ou deslizar **em qualquer lugar** da barra de menu (não só em área vazia) executa uma ação configurável **por direção**.
+Substitui as opções "Click in empty menu bar space" e "Swipe or scroll in menu bar" da referência por uma seção dedicada. Cada clique em **área vazia** da barra e cada direção de scroll/swipe **em qualquer lugar** da barra executa uma ação configurável.
 
 | Opção | Tipo | Padrão |
 |---|---|---|
-| Scroll or swipe in the menu bar | toggle | on |
+| Left Click | popup de ação | Show / Hide Hidden Items |
+| Right Click | popup de ação | Do Nothing |
+| Middle Click | popup de ação | Do Nothing |
 | Scroll Up | popup de ação | Hide Hidden Items |
 | Scroll Down | popup de ação | Show Hidden Items |
 | Scroll Left | popup de ação | Desktop on the Left |
 | Scroll Right | popup de ação | Desktop on the Right |
 
-- Ações: Do Nothing, Show / Hide Hidden Items, Show Hidden Items, Hide Hidden Items, Desktop on the Left, Desktop on the Right. Com a Barkeeper Bar ligada, mostrar/esconder abre/fecha o painel.
+- Ações: Do Nothing; Show / Hide Hidden Items, Show Hidden Items, Hide Hidden Items; Desktop on the Left, Desktop on the Right; Mission Control, App Exposé, Show Desktop. Com a Barkeeper Bar ligada, mostrar/esconder abre/fecha o painel. "Do Nothing" desliga o gesto (não há chave geral).
+- Migração: quem tinha o clique em área vazia desligado fica com Left Click = Do Nothing; quem tinha o scroll desligado fica com as quatro direções em Do Nothing.
+- Clique do meio = botão 2; botões 3+ (voltar/avançar) são ignorados.
 - Direções físicas (dedos ou roda), independentes da rolagem natural. Uma ação por gesto; a inércia (momentum) é ignorada. Roda de mouse: no máximo uma ação a cada 0,5 s.
 - Trocar de mesa envia o atalho do próprio sistema "Mover para a esquerda/direita um espaço" (Mission Control, IDs 79/81 de `com.apple.symbolichotkeys`), lido das preferências do usuário; se o atalho estiver desligado, nada acontece.
+- Mission Control, App Exposé (janelas do app da frente; clicar na barra não troca o app da frente) e Show Desktop pedem diretamente ao Dock (notificações do Dock), então funcionam mesmo com os atalhos desligados; se esse caminho não existir, usam os atalhos 32/33/36. Repetir Show Desktop devolve as janelas, como no macOS.
+- Ações que não mexem na barra (desktops, Mission Control) rodam mesmo durante movimentação de itens.
 
 ### 1.4 Show always hidden bar items
 
@@ -343,7 +349,7 @@ A barra de menu é preenchida da direita para a esquerda. O app cria **seus pró
 ### 4.6 Interação com a barra
 
 - Gatilhos de clique/scroll/hover na barra: event tap global (`CGEventTapCreate`).
-- **Barkeeper:** event tap só de escuta (`listenOnly`, sessão) para `leftMouseDown`, `scrollWheel` e `mouseMoved`; nunca altera eventos. "Área vazia" = dentro da altura da barra de uma tela, fora de qualquer status item, fora dos menus do app dono da barra (frames via AX `AXMenuBar`) e fora do notch. Clique em área vazia alterna (revela/esconde). Hover só revela, depois do atraso, se o cursor ainda estiver em área vazia; não esconde ao sair (quem esconde é o auto-rehide).
+- **Barkeeper:** event tap só de escuta (`listenOnly`, sessão) para `leftMouseDown`, `rightMouseDown`, `otherMouseDown`, `scrollWheel` e `mouseMoved`; nunca altera eventos. "Área vazia" = dentro da altura da barra de uma tela, fora de qualquer status item, fora dos menus do app dono da barra (frames via AX `AXMenuBar`) e fora do notch. Cliques em área vazia executam a ação do botão (1.3.1). Hover só revela, depois do atraso, se o cursor ainda estiver em área vazia; não esconde ao sair (quem esconde é o auto-rehide).
 - Abrir o menu de um item: Accessibility `AXPress` / `AXShowMenu` ou clique sintético na posição do item. **Barkeeper:** `AXPress` (depois `AXShowMenu`) no item revelado no lugar; ⌘-drag temporário só quando o item não cabe na tela mesmo revelado.
 - Tags de janela do WindowServer (`CGSSetWindowTags`/`CGSClearWindowTags`) aparecem nas importações. Propósito não investigado; o Barkeeper não precisa delas.
 
