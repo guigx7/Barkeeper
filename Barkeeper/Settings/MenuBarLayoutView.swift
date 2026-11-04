@@ -6,15 +6,22 @@ struct MenuBarLayoutView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            PageHeader(symbol: "menubar.rectangle", tint: .blue, title: "Menu Bar Items",
+            PageHeader(title: "Menu Bar Layout",
                        subtitle: "Drag items between sections to rearrange your menu bar.")
 
             if model.status == .noPermission {
                 PermissionNotice()
             } else {
                 StatusCard(model: model)
-                ForEach(MenuBarSection.allCases, id: \.self) { section in
-                    SectionStrip(model: model, section: section)
+                SettingsCard(title: "Sections") {
+                    VStack(spacing: 14) {
+                        ForEach(MenuBarSection.allCases, id: \.self) { section in
+                            SectionStrip(model: model, section: section)
+                        }
+                    }
+                    .padding(.horizontal, Metrics.inset)
+                    .padding(.top, 6)
+                    .padding(.bottom, 14)
                 }
                 PaletteCard(model: model)
             }
@@ -127,13 +134,12 @@ private struct SectionStrip: View {
         let entries = model.entries(in: section)
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Image(systemName: section.symbol).foregroundStyle(.secondary)
+                IconTile(symbol: section.symbol, size: 22)
                 Text(section == .alwaysHidden ? "Always Hidden" : "\(section.title) Items")
                     .font(.system(size: 13, weight: .semibold))
                 Text(section.hint).font(.system(size: 11)).foregroundStyle(.tertiary)
                 Spacer()
             }
-            .padding(.leading, 4)
 
             GeometryReader { geo in
                 HStack(spacing: 0) {

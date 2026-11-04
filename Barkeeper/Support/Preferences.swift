@@ -94,7 +94,7 @@ final class Preferences: ObservableObject {
             Keys.scrollEnabled: true,
             Keys.revealOnHover: false,
             Keys.hoverDelay: 0.2,
-            Keys.iconSymbol: "ellipsis",
+            Keys.iconSymbol: "custom.bee",
         ])
         showDivider = defaults.bool(forKey: Keys.showDivider)
         shiftClickShowsAll = defaults.bool(forKey: Keys.shiftClickShowsAll)
@@ -111,6 +111,6 @@ final class Preferences: ObservableObject {
         })
         revealOnHover = defaults.bool(forKey: Keys.revealOnHover)
         hoverDelay = defaults.double(forKey: Keys.hoverDelay)
-        iconSymbol = defaults.string(forKey: Keys.iconSymbol) ?? "ellipsis"
+        iconSymbol = defaults.string(forKey: Keys.iconSymbol) ?? "custom.bee"
     }
 }

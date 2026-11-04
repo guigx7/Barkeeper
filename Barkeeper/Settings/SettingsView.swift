@@ -19,6 +19,26 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .about: "info.circle"
         }
     }
+
+    /// Words the sidebar search matches besides the title.
+    var keywords: [String] {
+        switch self {
+        case .general: ["login", "start", "hover", "click", "scroll", "swipe", "desktop", "space", "bar", "notch",
+                        "rehide", "hide", "option", "shift", "icon", "divider", "bee"]
+        case .layout: ["items", "hidden", "always hidden", "shown", "drag", "spacer", "group", "organize"]
+        case .about: ["version", "website", "support", "feedback", "logs", "debug", "quit"]
+        }
+    }
+
+    func matches(_ query: String) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        return q.isEmpty || title.lowercased().contains(q) || keywords.contains { $0.contains(q) }
+    }
+
+    static let sections: [(title: String, pages: [SettingsPage])] = [
+        ("Settings", [.general, .layout]),
+        ("App", [.about]),
+    ]
 }
 
 @MainActor
@@ -37,15 +57,24 @@ struct SettingsView: View {
     @ObservedObject var navigation: SettingsNavigation
     @ObservedObject var layout: LayoutModel
     @ObservedObject var prefs: Preferences
+    @State private var search = ""
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsPage.allCases, selection: Binding(
-                get: { navigation.page }, set: { if let p = $0 { navigation.page = p } })
-            ) { page in
-                Label(page.title, systemImage: page.symbol).tag(page)
+            List(selection: Binding(get: { navigation.page }, set: { if let p = $0 { navigation.page = p } })) {
+                ForEach(SettingsPage.sections, id: \.title) { section in
+                    let pages = section.pages.filter { $0.matches(search) }
+                    if !pages.isEmpty {
+                        Section(section.title) {
+                            ForEach(pages) { page in
+                                Label(page.title, systemImage: page.symbol).tag(page)
+                            }
+                        }
+                    }
+                }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
+            .searchable(text: $search, placement: .sidebar, prompt: "Search settings")
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 260)
         } detail: {
             ScrollView {
                 Group {
@@ -55,9 +84,9 @@ struct SettingsView: View {
                     case .about: AboutView()
                     }
                 }
-                .padding(.horizontal, 28)
-                .padding(.vertical, 20)
-                .frame(maxWidth: 760, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
+                .frame(maxWidth: 680, alignment: .leading)
                 .frame(maxWidth: .infinity)
             }
             .toolbar {
@@ -70,7 +99,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .navigationTitle(navigation.page.title)
+            .navigationTitle("Barkeeper Settings")
         }
         .task(id: navigation.page) {
             if navigation.page == .layout { await layout.refresh() }

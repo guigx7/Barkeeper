@@ -1,79 +1,118 @@
 import SwiftUI
 
-/// Large page header: tinted icon tile, title, subtitle.
+// Visual language of the settings window: a plain bold page title, then rounded cards. A card can
+// carry its own title and footnote inside it; rows start with a small icon tile, then a label with
+// an optional explanation, and the control on the trailing edge.
+
+/// Page title.
 struct PageHeader: View {
-    let symbol: String
-    let tint: Color
     let title: String
-    let subtitle: String
+    var subtitle: String?
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(tint.gradient, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 22, weight: .semibold)).tracking(-0.3)
-                Text(subtitle).font(.system(size: 13)).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.system(size: 20, weight: .bold)).tracking(-0.3)
+            if let subtitle {
+                Text(subtitle).font(.system(size: 12)).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
         }
-        .padding(.bottom, 6)
+        .padding(.bottom, 2)
     }
 }
 
-/// Titled group of rows on a rounded card, with an optional footnote.
+/// Rounded card grouping related rows, with an optional title and footnote inside it.
 struct SettingsCard<Content: View>: View {
     var title: String?
     var footnote: String?
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             if let title {
-                Text(title).font(.system(size: 13, weight: .semibold)).padding(.leading, 4)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, Metrics.inset)
+                    .padding(.top, 14)
+                    .padding(.bottom, 4)
             }
-            VStack(spacing: 0) { content }
-                .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.cardBorder))
+            content
             if let footnote {
-                Text(footnote).font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 4)
+                Text(footnote)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Metrics.inset)
+                    .padding(.top, 2)
+                    .padding(.bottom, 12)
             }
         }
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous).strokeBorder(Color.cardBorder))
     }
 }
 
-/// One row inside a `SettingsCard`.
+/// Small rounded tile with a tinted symbol, leading a row.
+struct IconTile: View {
+    let symbol: String
+    var size: CGFloat = 26
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.5, weight: .medium))
+            .foregroundStyle(Color.accentColor)
+            .frame(width: size, height: size)
+            .background(Color.tileBackground, in: RoundedRectangle(cornerRadius: size * 0.27, style: .continuous))
+    }
+}
+
+/// One row inside a `SettingsCard`. `symbol` adds a leading icon tile; `indented` aligns a
+/// sub-option with the text of a row that has one.
 struct SettingsRow<Accessory: View>: View {
     let label: String
     var detail: String?
+    var symbol: String?
+    var indented = false
     var showsDivider = true
     @ViewBuilder var accessory: Accessory
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
+                if let symbol {
+                    IconTile(symbol: symbol)
+                } else if indented {
+                    Color.clear.frame(width: 26, height: 1)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label).font(.system(size: 13))
                     if let detail {
                         Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 12)
                 accessory
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, Metrics.inset)
             .padding(.vertical, 9)
-            if showsDivider { Divider().padding(.leading, 12) }
+            if showsDivider {
+                Divider().padding(.leading, Metrics.inset).padding(.trailing, Metrics.inset)
+            }
         }
     }
 }
 
+enum Metrics {
+    static let inset: CGFloat = 16
+    static let cardRadius: CGFloat = 14
+}
+
 extension Color {
-    static let cardBackground = Color(nsColor: .controlBackgroundColor).opacity(0.6)
-    static let cardBorder = Color.primary.opacity(0.07)
+    static let cardBackground = Color.primary.opacity(0.035)
+    static let cardBorder = Color.primary.opacity(0.06)
+    static let tileBackground = Color.primary.opacity(0.07)
     /// The menu bar strip: a dark translucent band, the same in light and dark mode.
     static let barStrip = Color(white: 0.11)
 }

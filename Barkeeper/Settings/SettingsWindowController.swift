@@ -8,18 +8,26 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     init(services: AppServices) {
         layout = LayoutModel(services: services)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 640),
+        // Tall by default: most pages are long lists of cards.
+        let available = NSScreen.main?.visibleFrame.height ?? 900
+        let height = min(900, max(560, available - 80))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: height),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                               backing: .buffered, defer: true)
-        window.title = "Barkeeper"
+        window.title = "Barkeeper Settings"
         window.isReleasedWhenClosed = false
         window.toolbarStyle = .unified
-        window.setFrameAutosaveName("BarkeeperSettings")
+        window.setFrameAutosaveName("BarkeeperSettingsWindow")
         window.minSize = NSSize(width: 720, height: 520)
         super.init(window: window)
         window.delegate = self
-        window.contentViewController = NSHostingController(
-            rootView: SettingsView(navigation: navigation, layout: layout, prefs: .shared))
+        let hosting = NSHostingController(rootView: SettingsView(navigation: navigation, layout: layout, prefs: .shared))
+        // Keep the window's own size: by default the hosting controller shrinks it to the content's ideal size.
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
+        if !window.setFrameUsingName("BarkeeperSettingsWindow") {
+            window.setContentSize(NSSize(width: 860, height: height))
+        }
     }
 
     @available(*, unavailable)
