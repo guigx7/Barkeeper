@@ -8,6 +8,7 @@ final class ItemActivator {
     private let hider: Hider
     private let prefs: Preferences
     private(set) var isBusy = false
+    private let cover = BarCover()
 
     init(mover: Mover, hider: Hider, prefs: Preferences = .shared) {
         self.mover = mover
@@ -26,22 +27,56 @@ final class ItemActivator {
         let started = ContinuousClock.now
         let previous = hider.state
         let section = snapshot.section(of: item)
+        // Freeze the bars so only the clicked item shows up when its section is revealed underneath.
+        let displays = Displays.current()
+        cover.show(on: displays)
+        defer { cover.close() }
         hider.apply(section == .alwaysHidden ? .revealedAll : .revealedHidden)
 
         if let frame = await waitUntilVisible(item, on: snapshot.display), let pid = item.appPID ?? Optional(item.windowOwnerPID) {
+            uncover(item, displays: displays, active: snapshot.display)
             let before = Set(WindowServer.onScreenWindows().map(\.windowID))
             let (index, count) = position(of: item, in: snapshot)
             if await AX.pressMenuBarItem(pid: pid, frame: frame, index: index, count: count) {
                 Log.menuBar.info("Opened \(item.identity.description, privacy: .public) in place via AX in \(started.duration(to: .now), privacy: .public)")
                 await waitForMenuToClose(of: item, ignoring: before)
                 hider.apply(previous)
+                // Let the dividers collapse before lifting the still image.
+                try? await Task.sleep(for: .milliseconds(120))
                 return
             }
             Log.menuBar.notice("AXPress failed for \(item.identity.description, privacy: .public); moving it instead")
         }
         hider.apply(previous)
+        cover.close()
         try? await Task.sleep(for: .milliseconds(100))
         await activateByMoving(item, in: snapshot)
+    }
+
+    /// Opens the cover over the clicked item and over Barkeeper's own shown items (the capture
+    /// cannot see this app's own status items, and they do not move when a section is revealed), on
+    /// every display: each display mirrors the bar in the same order.
+    private func uncover(_ item: MenuBarItem, displays: [DisplayInfo], active: DisplayInfo) {
+        var byDisplay: [CGDirectDisplayID: [WindowInfo]] = [:]
+        for w in ItemScanner.itemWindows() {
+            guard let d = Displays.display(forMenuBarWindow: w.frame, in: displays) else { continue }
+            byDisplay[d.id, default: []].append(w)
+        }
+        for id in byDisplay.keys { byDisplay[id]?.sort { $0.frame.minX < $1.frame.minX } }
+        guard let activeWindows = byDisplay[active.id],
+              let itemIndex = activeWindows.firstIndex(where: { $0.windowID == item.windowID }) else { return }
+        let dividers = Set([ControlItems.Name.hidden.rawValue, ControlItems.Name.alwaysHidden.rawValue])
+        let ownTitles = Set(ControlItems.Name.allCases.map(\.rawValue))
+        let ownIndices = activeWindows.indices.filter { i in
+            let title = activeWindows[i].title ?? ""
+            let own = ownTitles.contains(title) || title.hasPrefix(MenuBarGroup.namePrefix) || title.hasPrefix(SpacerItems.namePrefix)
+            return own && !dividers.contains(title)
+        }
+        let indices = [itemIndex] + ownIndices
+        for display in displays {
+            guard let windows = byDisplay[display.id], windows.count == activeWindows.count else { continue }
+            cover.punchHoles(indices.map { windows[$0].frame }, on: display)
+        }
     }
 
     /// Index of the item among the items of the same app (left → right) and how many there are.
