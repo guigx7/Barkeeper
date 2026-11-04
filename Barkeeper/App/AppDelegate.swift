@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.app.info("Barkeeper \(Bundle.main.versionString, privacy: .public) launched")
         // The Dock caches icons per app path; set the tile from the asset catalog so it is always current.
         if let icon = NSImage(named: "AppIcon") { NSApp.applicationIconImage = icon }
+        // Icons removed from the choices fall back to the default so the grid always shows the selection.
+        if !ControlItems.iconChoices.contains(Preferences.shared.iconSymbol) {
+            Preferences.shared.iconSymbol = "custom.bee"
+        }
         let services = AppServices()
         AppServices.shared = services
         self.services = services

@@ -14,7 +14,10 @@ final class BarWatcher {
     private var observers: [NSObjectProtocol] = []
     private var pendingCheck: Task<Void, Never>?
     private var runningObservation: NSKeyValueObservation?
+    private var pendingAppChange: Task<Void, Never>?
+    private var lastItemIDs: Set<String> = []
     private static let knownKey = "knownItems"
+    private static let knownAppsKey = "knownItemApps"
 
     init(services: AppServices) {
         self.services = services
@@ -40,19 +43,38 @@ final class BarWatcher {
         Log.menuBar.info("Screens changed: \(NSScreen.screens.count, privacy: .public) screen(s)")
         services.invalidateSnapshot()
         services.barPanel.close(animated: false)
-        // Dividers are sized from the widest screen; re-apply once the new layout settles.
+        // Dividers are sized from the widest screen; re-apply once the new layout settles. This is the
+        // only screen observer that touches the dividers; it waits for any move session to finish.
         Task {
             try? await Task.sleep(for: .milliseconds(500))
+            while services.mover.isMoving || services.activator.isBusy {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
             services.hider.apply(services.hider.state)
             NotificationCenter.default.post(name: .barkeeperMenuBarChanged, object: nil)
         }
     }
 
+    /// Helpers and agents start and stop all the time: coalesce bursts, and only tell views to reload
+    /// when the set of items actually changed.
     private func appsChanged(launched: Bool) {
-        Log.menuBar.info("App \(launched ? "launched" : "quit", privacy: .public)")
         services.invalidateSnapshot()
-        NotificationCenter.default.post(name: .barkeeperMenuBarChanged, object: nil)
         if launched { scheduleNewItemCheck() }
+        pendingAppChange?.cancel()
+        pendingAppChange = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            await self?.postIfItemsChanged()
+        }
+    }
+
+    private func postIfItemsChanged() async {
+        guard !services.mover.isMoving, let snapshot = await services.activeSnapshot() else { return }
+        let ids = Set(snapshot.items.map(\.identity.description))
+        guard ids != lastItemIDs else { return }
+        lastItemIDs = ids
+        Log.menuBar.info("Menu bar items changed: \(ids.count, privacy: .public) items")
+        NotificationCenter.default.post(name: .barkeeperMenuBarChanged, object: nil)
     }
 
     /// Apps create their items some time after launching: look twice.
@@ -63,6 +85,7 @@ final class BarWatcher {
                 try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled else { return }
                 await self?.placeNewItems()
+                await self?.postIfItemsChanged()
             }
         }
     }
@@ -74,31 +97,50 @@ final class BarWatcher {
         set { UserDefaults.standard.set(Array(newValue).sorted(), forKey: Self.knownKey) }
     }
 
-    /// Items never seen before that landed in Always Hidden are moved to the start of Shown (decided
-    /// with the user: a new app's icon should be visible, as it would be without Barkeeper). The first
-    /// run only records what exists.
+    /// Apps (identity namespaces) that ever had an item. Item names can change between scans when the
+    /// Accessibility match is missing, so "new" also requires an app never seen before.
+    private var knownApps: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: Self.knownAppsKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue).sorted(), forKey: Self.knownAppsKey) }
+    }
+
+    /// Items of apps never seen before that landed in Always Hidden are moved to the start of Shown
+    /// (decided with the user: a new app's icon should be visible, as it would be without Barkeeper).
+    /// The first run only records what exists. Items whose move fails stay unknown and are retried.
     func placeNewItems() async {
-        guard !services.mover.isMoving, !services.activator.isBusy,
-              let snapshot = await services.activeSnapshot(), let main = snapshot.controlItem(.main) else { return }
+        // Without Accessibility, identities fall back to window titles and cannot be trusted.
+        guard Permission.accessibility.isGranted, !services.mover.isMoving, !services.activator.isBusy,
+              let snapshot = await services.activeSnapshot(), let main = snapshot.controlItem(.main),
+              !services.mover.isMoving else { return }
         let candidates = snapshot.items.filter { !$0.isBarkeeper && !$0.identity.name.hasPrefix("#") }
-        let ids = Set(candidates.map(\.identity.description))
-        var known = self.known
-        defer { self.known = known.union(ids) }
-        guard !known.isEmpty else {
-            Log.menuBar.info("New items: recorded \(ids.count, privacy: .public) existing items")
+        let known = self.known
+        // Older builds recorded only items: derive their apps (`namespace/name`).
+        let knownApps = self.knownApps.isEmpty
+            ? Set(known.compactMap { $0.split(separator: "/", maxSplits: 1).first.map(String.init) }) : self.knownApps
+        guard !known.isEmpty || !knownApps.isEmpty else {
+            self.known = Set(candidates.map(\.identity.description))
+            self.knownApps = Set(candidates.map(\.identity.namespace))
+            Log.menuBar.info("New items: recorded \(candidates.count, privacy: .public) existing items")
             return
         }
         let members = services.groups.allMembers
         let fresh = candidates.filter { item in
-            !known.contains(item.identity.description) && item.isMovable && !members.contains(item.identity)
-                && snapshot.section(of: item) == .alwaysHidden
+            !known.contains(item.identity.description) && !knownApps.contains(item.identity.namespace)
+                && item.isMovable && !members.contains(item.identity) && snapshot.section(of: item) == .alwaysHidden
         }
-        known.formUnion(ids)
-        guard !fresh.isEmpty else { return }
-        Log.menuBar.info("New items: moving \(fresh.map(\.identity.description).joined(separator: ", "), privacy: .public) to Shown")
-        let moves = fresh.map { Mover.Move(item: $0, destination: .rightOf(main.windowID)) }
-        await services.mover.perform(moves, on: snapshot.display)
-        services.invalidateSnapshot()
-        NotificationCenter.default.post(name: .barkeeperMenuBarChanged, object: nil)
+        var failed: Set<String> = []
+        if !fresh.isEmpty {
+            Log.menuBar.info("New items: moving \(fresh.map(\.identity.description).joined(separator: ", "), privacy: .public) to Shown")
+            let moves = fresh.map { Mover.Move(item: $0, destination: .rightOf(main.windowID)) }
+            let failures = await services.mover.perform(moves, on: snapshot.display)
+            failed = Set(failures.map(\.0.item.identity.description))
+            if !failed.isEmpty {
+                Log.menuBar.notice("New items: could not move \(failed.sorted().joined(separator: ", "), privacy: .public); will retry")
+            }
+            services.invalidateSnapshot()
+        }
+        let settled = candidates.filter { !failed.contains($0.identity.description) }
+        self.known = known.union(settled.map(\.identity.description))
+        self.knownApps = knownApps.union(settled.map(\.identity.namespace))
     }
 }

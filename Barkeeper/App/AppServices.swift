@@ -37,7 +37,7 @@ final class AppServices {
         triggers.isOverRevealedUI = { [weak self] point in self?.barPanel.contains(cgPoint: point) ?? false }
         triggers.canHideNow = { [weak self] in
             guard let self else { return true }
-            return !self.activator.isBusy && !self.mover.isMoving && !WindowServer.isMenuOpen()
+            return !self.activator.isBusy && !self.mover.isMoving
         }
         triggers.start()
         prefs.$iconSymbol.dropFirst().sink { [weak self] symbol in self?.controlItems.setIcon(symbol) }

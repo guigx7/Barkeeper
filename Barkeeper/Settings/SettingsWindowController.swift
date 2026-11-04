@@ -26,7 +26,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             forName: .barkeeperMenuBarChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.window?.isVisible == true, self.navigation.page == .layout else { return }
-                Task { await self.layout.refresh() }
+                self.layout.refreshWhenIdle()
             }
         }
         let hosting = NSHostingController(rootView: SettingsView(navigation: navigation, layout: layout, prefs: .shared))

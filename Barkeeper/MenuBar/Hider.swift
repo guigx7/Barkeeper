@@ -17,17 +17,12 @@ final class Hider {
     private let prefs: Preferences
     private(set) var state: State = .hidden
     private var outsideClickMonitor: Any?
-    private var screenObserver: NSObjectProtocol?
 
     init(items: ControlItems, prefs: Preferences = .shared) {
         self.items = items
         self.prefs = prefs
         applyDividers(.revealedAll)
-        screenObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self.map { $0.apply($0.state) } }
-        }
+        // Screen changes are handled by BarWatcher, which re-applies the state once moves are done.
     }
 
     /// Plain click toggles Hidden; ⌥-click reveals per preference; ⇧-click reveals everything if enabled.

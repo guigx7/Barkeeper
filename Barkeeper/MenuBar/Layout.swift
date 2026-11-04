@@ -72,6 +72,23 @@ final class LayoutModel: ObservableObject {
 
     // MARK: - Reading the bar
 
+    private var pendingRefresh: Task<Void, Never>?
+
+    /// Refresh for an outside change (apps, screens): coalesced, and deferred while Barkeeper is
+    /// moving items or the user is dragging, so a mid-move scan never replaces the optimistic layout.
+    func refreshWhenIdle() {
+        pendingRefresh?.cancel()
+        pendingRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            while let self, !Task.isCancelled,
+                  self.status == .organizing || self.dragging != nil || self.services.mover.isMoving {
+                try? await Task.sleep(for: .milliseconds(300))
+            }
+            guard let self, !Task.isCancelled else { return }
+            await self.refresh()
+        }
+    }
+
     func refresh() async {
         guard Permission.accessibility.isGranted else {
             status = .noPermission

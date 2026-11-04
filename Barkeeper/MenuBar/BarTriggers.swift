@@ -22,6 +22,8 @@ final class BarTriggers {
     private var leaveTask: Task<Void, Never>?
     /// Set when hover revealed the items: they hide again once the pointer leaves.
     private var revealedByHoverAt: ContinuousClock.Instant?
+    /// Menu-like windows already open when the hover reveal happened (overlays, HUDs): not the user's.
+    private var menusAtReveal: Set<CGWindowID> = []
     private var scrollAccumulated = CGVector.zero
     private var scrollLockedUntil = ContinuousClock.now
     /// One action per gesture: set once a trackpad gesture fired, cleared when it ends.
@@ -144,6 +146,7 @@ final class BarTriggers {
             self.hoverTask = nil
             guard Self.isEmptyMenuBarSpace(Self.pointerLocation()), !(self.isRevealed?() ?? false) else { return }
             self.revealedByHoverAt = .now
+            self.menusAtReveal = WindowServer.openMenuWindows()
             self.perform?(.reveal)
         }
     }
@@ -166,9 +169,16 @@ final class BarTriggers {
         leaveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
             while let self, !Task.isCancelled {
-                guard self.revealedByHoverAt != nil, self.isRevealed?() ?? false else { break }
+                guard let since = self.revealedByHoverAt else { break }
+                // The panel appears asynchronously: within the grace period keep waiting for it.
+                if !(self.isRevealed?() ?? false) {
+                    if ContinuousClock.now - since > .seconds(1) { break }
+                    try? await Task.sleep(for: .milliseconds(150))
+                    continue
+                }
                 if self.isInsideHoverArea(Self.pointerLocation()) { break }
-                if self.canHideNow?() ?? true, NSEvent.pressedMouseButtons == 0 {
+                if self.canHideNow?() ?? true, NSEvent.pressedMouseButtons == 0,
+                   !WindowServer.isMenuOpen(ignoring: self.menusAtReveal) {
                     self.perform?(.hide)
                     break
                 }

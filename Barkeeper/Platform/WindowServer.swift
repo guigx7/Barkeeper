@@ -36,12 +36,17 @@ enum WindowServer {
 
     /// A menu or a status item popover is open somewhere (menus sit at pop-up menu level; popovers at
     /// status level but taller than the menu bar).
-    static func isMenuOpen() -> Bool {
+    static func isMenuOpen(ignoring baseline: Set<CGWindowID> = []) -> Bool {
+        !openMenuWindows().subtracting(baseline).isEmpty
+    }
+
+    /// Windows of other processes that look like open menus or popovers.
+    static func openMenuWindows() -> Set<CGWindowID> {
         let me = ProcessInfo.processInfo.processIdentifier
-        return onScreenWindows().contains { w in
+        return Set(onScreenWindows().filter { w in
             guard w.ownerPID != me else { return false }
             return w.layer == popUpMenuLayer || (w.layer == statusItemLayer && w.frame.height > 40)
-        }
+        }.map(\.windowID))
     }
 
     /// All windows known to the WindowServer, including off-screen ones.
