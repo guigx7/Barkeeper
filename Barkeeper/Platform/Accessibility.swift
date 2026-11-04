@@ -82,3 +82,15 @@ enum AX {
         }.value
     }
 }
+
+extension AX {
+    /// Right edge (CG x) of the app menus (Apple menu, app name, File…) of the app that owns the menu
+    /// bar, or nil if unknown.
+    static func appMenusMaxX() -> CGFloat? {
+        guard let app = NSWorkspace.shared.menuBarOwningApplication else { return nil }
+        let el = application(pid: app.processIdentifier)
+        guard let bar = attribute(el, kAXMenuBarAttribute, as: AXUIElement.self) else { return nil }
+        AXUIElementSetMessagingTimeout(bar, messagingTimeout)
+        return children(bar).compactMap(frame).map(\.maxX).max()
+    }
+}

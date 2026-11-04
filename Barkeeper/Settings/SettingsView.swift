@@ -23,7 +23,14 @@ enum SettingsPage: String, CaseIterable, Identifiable {
 
 @MainActor
 final class SettingsNavigation: ObservableObject {
-    @Published var page: SettingsPage = .layout
+    @Published var page: SettingsPage = {
+        // Debug: `--settings-page <general|layout|about>`.
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "--settings-page"), i + 1 < args.count, let p = SettingsPage(rawValue: args[i + 1]) {
+            return p
+        }
+        return .layout
+    }()
 }
 
 struct SettingsView: View {

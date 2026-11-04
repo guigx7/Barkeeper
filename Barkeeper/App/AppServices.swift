@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 /// Long-lived services shared across the app.
 @MainActor
@@ -13,6 +14,8 @@ final class AppServices {
     let groups = GroupStore()
     let activator: ItemActivator
     let prefs = Preferences.shared
+    let triggers = BarTriggers()
+    private var subscriptions: Set<AnyCancellable> = []
     /// Last full scan of the active bar; lets the Barkeeper Bar open without waiting for AX.
     private(set) var cachedSnapshot: MenuBarSnapshot?
 
@@ -25,10 +28,27 @@ final class AppServices {
         groups.onActivate = { [weak self] group, windowID in
             Task { await self?.openGroup(group, anchorWindowID: windowID) }
         }
+        triggers.isRevealed = { [weak self] in
+            guard let self else { return false }
+            return self.barPanel.isVisible || self.hider.state != .hidden
+        }
+        triggers.perform = { [weak self] action in self?.handleTrigger(action) }
+        triggers.start()
+        hider.forceShowAll = { [weak self] in self?.activeScreenIsLarge() ?? false }
+        prefs.$iconSymbol.dropFirst().sink { [weak self] symbol in self?.controlItems.setIcon(symbol) }
+            .store(in: &subscriptions)
+        prefs.$showDivider.dropFirst().sink { [weak self] _ in
+            DispatchQueue.main.async { self.map { $0.hider.apply($0.hider.state) } }
+        }.store(in: &subscriptions)
+        Publishers.CombineLatest(prefs.$showAllOnLargeScreen, prefs.$largeScreenWidth).dropFirst()
+            .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
+            .sink { [weak self] _, _ in self?.hider.reevaluateForcedState() }
+            .store(in: &subscriptions)
         // Status item windows get their frames on the next layout pass.
         Task { [hider] in
             try? await Task.sleep(for: .milliseconds(400))
             hider.apply(.hidden)
+            hider.reevaluateForcedState(onlyIfChanged: true)
         }
     }
 
@@ -83,6 +103,38 @@ final class AppServices {
             }
         }
         return await activeSnapshot()
+    }
+
+    // MARK: - Triggers
+
+    /// Click / scroll / hover on empty menu bar space.
+    private func handleTrigger(_ action: BarTriggers.Action) {
+        let revealed = barPanel.isVisible || hider.state != .hidden
+        switch action {
+        case .toggle:
+            // The panel closes itself on outside clicks; a click on empty bar space while it is
+            // open only closes it.
+            if barPanel.isVisible {
+                barPanel.close(animated: true)
+            } else if revealed {
+                hider.apply(.hidden)
+            } else {
+                handleIconClick([])
+            }
+        case .reveal:
+            if !revealed { handleIconClick([]) }
+        case .hide:
+            if barPanel.isVisible { barPanel.close(animated: true) }
+            if hider.state != .hidden { hider.apply(.hidden) }
+        }
+    }
+
+    /// "Show all items when the active screen is above a set size" (General → Screens).
+    private func activeScreenIsLarge() -> Bool {
+        guard prefs.showAllOnLargeScreen, let mainID = controlItems.windowID(.main),
+              let frame = WindowServer.windows(ids: [mainID]).first?.frame,
+              let display = Displays.display(forMenuBarWindow: frame, in: Displays.current()) else { return false }
+        return display.bounds.width >= prefs.largeScreenWidth
     }
 
     // MARK: - Barkeeper icon

@@ -37,8 +37,7 @@ final class ControlItems: NSObject {
         alwaysHiddenDivider = Self.make(.alwaysHidden)
         super.init()
         if let button = mainItem.button {
-            button.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Barkeeper")
-            button.image?.isTemplate = true
+            button.image = Self.iconImage(Preferences.shared.iconSymbol)
             button.target = self
             button.action = #selector(mainClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -48,6 +47,58 @@ final class ControlItems: NSObject {
             divider.button?.image?.isTemplate = true
             divider.button?.appearsDisabled = true
         }
+    }
+
+    /// Symbols offered for the Barkeeper icon (General → Barkeeper menu bar item).
+    static let iconChoices: [(symbol: String, name: String)] = [
+        ("ellipsis", "More"),
+        ("ellipsis.circle", "More (Circle)"),
+        ("line.3.horizontal", "Lines"),
+        ("chevron.left.2", "Chevrons"),
+        ("square.grid.2x2", "Grid"),
+        ("circle.grid.2x1.fill", "Dots"),
+        ("wineglass", "Glass"),
+        ("mug", "Mug"),
+    ]
+
+    /// The Barkeeper icon, optionally with the "‹" divider drawn on its left. A collapsed divider
+    /// is wider than the screen and macOS does not draw status items that cross the screen edge, so
+    /// the divider shown while items are hidden is part of the icon.
+    static func iconImage(_ symbol: String, withDivider: Bool = false) -> NSImage? {
+        guard let icon = NSImage(systemSymbolName: symbol, accessibilityDescription: "Barkeeper")
+            ?? NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Barkeeper") else { return nil }
+        guard withDivider, let chevron = NSImage(systemSymbolName: "chevron.compact.left", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular)) else {
+            icon.isTemplate = true
+            return icon
+        }
+        let gap: CGFloat = 8
+        let size = NSSize(width: chevron.size.width + gap + icon.size.width, height: max(chevron.size.height, icon.size.height))
+        let image = NSImage(size: size, flipped: false) { rect in
+            chevron.draw(in: NSRect(x: 0, y: (rect.height - chevron.size.height) / 2,
+                                    width: chevron.size.width, height: chevron.size.height),
+                         from: .zero, operation: .sourceOver, fraction: 0.55)
+            icon.draw(in: NSRect(x: chevron.size.width + gap, y: (rect.height - icon.size.height) / 2,
+                                 width: icon.size.width, height: icon.size.height))
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Barkeeper"
+        return image
+    }
+
+    private var iconSymbol = Preferences.shared.iconSymbol
+    private var iconShowsDivider = false
+
+    func setIcon(_ symbol: String) {
+        iconSymbol = symbol
+        mainItem.button?.image = Self.iconImage(symbol, withDivider: iconShowsDivider)
+    }
+
+    func setIconDivider(_ shows: Bool) {
+        guard shows != iconShowsDivider else { return }
+        iconShowsDivider = shows
+        mainItem.button?.image = Self.iconImage(iconSymbol, withDivider: shows)
     }
 
     private static func make(_ name: Name) -> NSStatusItem {
