@@ -50,24 +50,38 @@ final class ControlItems: NSObject {
     }
 
     /// Symbols offered for the Barkeeper icon (General → Barkeeper menu bar item).
-    static let iconChoices: [String] = [
+    static let iconChoices: [String] = CustomIcons.names + [
+        // Dots, lines, grids
         "ellipsis", "ellipsis.circle", "ellipsis.circle.fill", "ellipsis.rectangle", "circle.grid.2x1.fill",
-        "circle.grid.3x3", "circle.hexagongrid", "square.grid.2x2", "square.grid.3x3", "rectangle.grid.1x2",
-        "line.3.horizontal", "line.3.horizontal.decrease", "list.bullet", "chevron.left.2", "chevron.left.circle",
-        "chevron.down.circle", "chevron.up.chevron.down", "arrow.left.and.right", "menubar.rectangle",
-        "menubar.dock.rectangle", "eye", "eye.slash", "archivebox", "tray", "tray.2", "shippingbox", "cube",
-        "folder", "square.stack.3d.up", "slider.horizontal.3", "switch.2", "gearshape", "command", "option",
-        "star", "heart", "bolt", "sparkles", "wand.and.stars", "flame", "leaf", "moon", "sun.max", "cloud",
-        "snowflake", "drop", "wineglass", "mug", "cup.and.saucer", "takeoutbag.and.cup.and.straw", "fork.knife",
-        "birthday.cake", "party.popper", "crown", "dice", "gamecontroller", "puzzlepiece", "pawprint", "hare",
-        "tortoise", "ant", "cat", "dog", "bird", "fish", "hexagon", "diamond", "seal", "rosette", "flag",
-    ].filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil }
+        "circle.grid.3x3", "square.grid.2x2", "square.grid.3x3", "rectangle.grid.1x2", "line.3.horizontal",
+        "line.3.horizontal.decrease", "list.bullet", "menubar.rectangle", "menubar.dock.rectangle",
+        // Single arrows and chevrons
+        "chevron.left", "chevron.right", "chevron.down", "chevron.up", "chevron.compact.left",
+        "chevron.compact.down", "chevron.left.2", "chevron.left.circle", "chevron.down.circle",
+        "chevron.left.square", "arrow.left", "arrow.right", "arrow.down", "arrow.up", "arrow.down.left",
+        "arrow.up.left", "arrow.left.circle", "arrow.down.circle", "arrow.left.square", "arrowshape.left",
+        "arrowshape.down", "arrowtriangle.left", "arrowtriangle.left.fill", "arrowtriangle.down",
+        "arrowtriangle.down.fill", "arrow.uturn.left", "arrow.turn.down.left", "arrow.down.to.line",
+        "arrow.left.to.line", "chevron.up.chevron.down", "arrow.left.and.right", "arrow.up.and.down",
+        // Bees, honey, flowers
+        "hexagon", "hexagon.fill", "circle.hexagongrid", "circle.hexagongrid.fill", "circle.hexagonpath",
+        "camera.macro", "allergens", "ladybug", "ant", "leaf", "drop", "sun.max", "laurel.leading",
+        // Things that hold things
+        "eye", "eye.slash", "archivebox", "tray", "tray.2", "shippingbox", "cube", "folder",
+        "square.stack.3d.up", "slider.horizontal.3", "switch.2", "gearshape", "command", "option",
+        // Everything else
+        "star", "heart", "bolt", "sparkles", "wand.and.stars", "flame", "moon", "cloud", "snowflake",
+        "wineglass", "mug", "cup.and.saucer", "takeoutbag.and.cup.and.straw", "fork.knife", "birthday.cake",
+        "party.popper", "crown", "dice", "gamecontroller", "puzzlepiece", "pawprint", "hare", "tortoise",
+        "cat", "dog", "bird", "fish", "diamond", "seal", "rosette", "flag",
+    ].filter { $0.hasPrefix(CustomIcons.prefix) || NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil }
 
     /// The Barkeeper icon, optionally with the "‹" divider drawn on its left. A collapsed divider
     /// is wider than the screen and macOS does not draw status items that cross the screen edge, so
     /// the divider shown while items are hidden is part of the icon.
     static func iconImage(_ symbol: String, withDivider: Bool = false) -> NSImage? {
-        guard let icon = NSImage(systemSymbolName: symbol, accessibilityDescription: "Barkeeper")
+        guard let icon = CustomIcons.image(symbol)
+            ?? NSImage(systemSymbolName: symbol, accessibilityDescription: "Barkeeper")
             ?? NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Barkeeper") else { return nil }
         guard withDivider, let chevron = NSImage(systemSymbolName: "chevron.compact.left", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 13, weight: .regular)) else {

@@ -4,14 +4,10 @@ struct AboutView: View {
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 10) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 88, height: 88)
-                    .background(
-                        LinearGradient(colors: [Color(white: 0.28), Color(white: 0.1)], startPoint: .top, endPoint: .bottom),
-                        in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 112, height: 112)
                 Text("Barkeeper").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
                 Text("Version \(Bundle.main.versionString)")
                     .font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)

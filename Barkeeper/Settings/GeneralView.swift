@@ -136,7 +136,7 @@ private struct IconPicker: View {
     var body: some View {
         Button { isPresented.toggle() } label: {
             HStack(spacing: 6) {
-                Image(systemName: selection).frame(width: 20)
+                IconGlyph(name: selection).frame(width: 20)
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 4)
@@ -149,7 +149,7 @@ private struct IconPicker: View {
                             selection = symbol
                             isPresented = false
                         } label: {
-                            Image(systemName: symbol)
+                            IconGlyph(name: symbol)
                                 .font(.system(size: 14))
                                 .frame(width: 34, height: 30)
                                 .background(symbol == selection ? Color.accentColor.opacity(0.25) : Color.primary.opacity(0.05),
@@ -165,6 +165,19 @@ private struct IconPicker: View {
                 .padding(12)
             }
             .frame(height: 260)
+        }
+    }
+}
+
+/// An SF Symbol, or one of Barkeeper's own drawn icons.
+private struct IconGlyph: View {
+    let name: String
+
+    var body: some View {
+        if let custom = CustomIcons.image(name) {
+            Image(nsImage: custom).renderingMode(.template)
+        } else {
+            Image(systemName: name)
         }
     }
 }
