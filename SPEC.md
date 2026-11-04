@@ -108,7 +108,14 @@ Nota de rodapé da seção: "option-click" para mostrar itens escondidos.
 **Esconder de novo**
 - Com "Automatically rehide", o painel desaparece com fade (~0,3 s) ao clicar fora ou depois de usar um item.
 
-`[CONFIRMAR]` (baixo risco, testar no protótipo): comportamento com hover e com scroll quando o painel está ligado; teclado (Esc fecha o painel?).
+**Barkeeper (implementado na etapa 7, macOS 26.6):**
+- Clique no ícone com a Barkeeper Bar ligada: abre o painel com os itens Hidden. ⌥+clique: Always Hidden (ou Hidden + Always Hidden, conforme 1.5). ⇧+clique com a opção 1.4 ligada continua expandindo a barra real ("mostrar todos"). Clique no ícone com o painel aberto fecha o painel. "Only on screens with a notch" ligado em tela sem notch: o clique expande a barra real.
+- O painel reaproveita o último scan e só relê frames e imagens (abre em ~50 ms); um scan completo roda em segundo plano para atualizar o cache.
+- Fluxo do clique medido: item visível e clicado em ~0,6 s; volta à seção de origem em ~0,9 s após o menu fechar. A volta usa o vizinho original: à esquerda do vizinho da direita, senão à direita do da esquerda.
+- O fechamento do menu é detectado pela janela nova que o clique abriu: dono = app do item ou o host da barra, nível acima das janelas normais, ou popover em nível de status com mais de 40 pt de altura. O app espera essa janela sumir (até 10 min). Se nenhuma janela aparece em 1,5 s (item sem menu ou que abre uma janela normal), o item volta logo.
+- Overflow: se a posição à esquerda do ícone cairia atrás do notch ou fora da tela e "Show items to the right" estiver ligado, o item é colocado à esquerda do primeiro item fixo do sistema (Control Center), ou seja, depois dos itens visíveis.
+- Re-esconder: o painel fecha com fade de 0,3 s ao clicar fora ou ao escolher um item. O painel não recebe teclado (não ativa o app), então Esc não o fecha (v1).
+- `[CONFIRMAR]` hover e scroll na barra com o painel ligado: dependem dos gatilhos da etapa 9.
 
 ### 1.6 Barkeeper menu bar item
 

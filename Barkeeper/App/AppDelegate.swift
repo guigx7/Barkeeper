@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let services = AppServices()
         AppServices.shared = services
         self.services = services
-        services.controlItems.onClick = { [weak services] flags in services?.hider.handleClick(modifiers: flags) }
+        services.controlItems.onClick = { [weak services] flags in services?.handleIconClick(flags) }
         services.controlItems.menuProvider = { [weak self] in self?.makeMenu() ?? NSMenu() }
         if !permissions.allGranted {
             showPermissions()
@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showDebugItems()
         }
         runDebugMoveIfRequested()
+        runDebugActivateIfRequested()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -79,6 +80,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let after = await services?.activeSnapshot(), let moved = after.items.first(where: { $0.identity.description == identity }) {
                 Log.menuBar.info("debug-move: now in \(after.section(of: moved)?.rawValue ?? "?", privacy: .public)")
             }
+        }
+    }
+
+    /// `--debug-activate <namespace/name>`: open a hidden item's menu like the Barkeeper Bar does.
+    private func runDebugActivateIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "--debug-activate"), i + 1 < args.count, let services else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard let snapshot = await services.activeSnapshot(),
+                  let item = snapshot.items.first(where: { $0.identity.description == args[i + 1] }) else { return }
+            await services.activator.activate(item, in: snapshot)
+            let after = await services.activeSnapshot()
+            let section = after?.items.first { $0.identity == item.identity }.flatMap { after?.section(of: $0) }
+            Log.menuBar.info("debug-activate: back in \(section?.rawValue ?? "?", privacy: .public)")
         }
     }
 

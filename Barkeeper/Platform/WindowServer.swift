@@ -39,6 +39,12 @@ enum WindowServer {
         return list.compactMap(WindowInfo.init)
     }
 
+    /// Windows currently on screen, front to back.
+    static func onScreenWindows() -> [WindowInfo] {
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        return list.compactMap(WindowInfo.init)
+    }
+
     /// Descriptions for specific window IDs.
     static func windows(ids: [CGWindowID]) -> [WindowInfo] {
         guard !ids.isEmpty else { return [] }

@@ -8,6 +8,8 @@ struct DisplayInfo: Sendable, Hashable {
     let bounds: CGRect
     let hasNotch: Bool
     let menuBarHeight: CGFloat
+    /// Horizontal span (CG x) hidden by the notch, if any.
+    var notchSpan: ClosedRange<CGFloat>? = nil
 }
 
 enum Displays {
@@ -19,8 +21,24 @@ enum Displays {
                 name: screen.localizedName,
                 bounds: CGDisplayBounds(screen.displayID),
                 hasNotch: screen.safeAreaInsets.top > 0,
-                menuBarHeight: screen.frame.maxY - screen.visibleFrame.maxY)
+                menuBarHeight: screen.frame.maxY - screen.visibleFrame.maxY,
+                notchSpan: notchSpan(screen))
         }
+    }
+
+    @MainActor
+    private static func notchSpan(_ screen: NSScreen) -> ClosedRange<CGFloat>? {
+        guard screen.safeAreaInsets.top > 0, let left = screen.auxiliaryTopLeftArea,
+              let right = screen.auxiliaryTopRightArea, left.maxX < right.minX else { return nil }
+        // NS and CG share x for every display.
+        return left.maxX...right.minX
+    }
+
+    /// Converts a CG global rect (top-left origin) to AppKit screen coordinates (bottom-left origin).
+    @MainActor
+    static func appKitRect(_ rect: CGRect) -> NSRect {
+        let primaryHeight = NSScreen.screens.first?.frame.maxY ?? 0
+        return NSRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 
     /// Display whose top edge a menu bar window sits on (x is ignored: hidden items are off-screen).
