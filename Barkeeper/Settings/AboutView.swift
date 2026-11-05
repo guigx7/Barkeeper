@@ -17,9 +17,9 @@ struct AboutView: View {
                     .multilineTextAlignment(.center)
                     .padding(.top, 8)
                 HStack(spacing: 10) {
-                    Button("Send Feedback") { open("https://github.com/guigx7/g-bar/issues/new") }
+                    Button("Send Feedback") { open("https://github.com/guigx7/Barkeeper/issues/new") }
                     Button("Export Debug Logs…") { LogExporter.export() }
-                    Button("View on GitHub") { open("https://github.com/guigx7/g-bar") }
+                    Button("View on GitHub") { open("https://github.com/guigx7/Barkeeper") }
                         .buttonStyle(.link)
                 }
                 .padding(.top, 10)
@@ -35,7 +35,7 @@ struct AboutView: View {
 
             SettingsCard(title: "Help") {
                 SettingsRow(label: "Support", detail: "Questions and known issues.", symbol: "lifepreserver") {
-                    Button("Open") { open("https://github.com/guigx7/g-bar/issues") }
+                    Button("Open") { open("https://github.com/guigx7/Barkeeper/issues") }
                 }
                 SettingsRow(label: "Debug logs",
                             detail: "Saves this session's log to a text file you can attach to a bug report.",
